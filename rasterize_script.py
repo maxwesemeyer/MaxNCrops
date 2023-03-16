@@ -1,3 +1,5 @@
+from __functions import *
+
 
 def create_reference_raster(gpd_frame):
     # creates a reference raster in 10m resolution that covers the study area and will be used for rasterization
@@ -5,8 +7,8 @@ def create_reference_raster(gpd_frame):
     crs = gpd_frame.crs
 
     # this way the extent becomes divisible by 100
-    range_y = math.ceil((bounds[2] - bounds[0]) / 1000) * 100
-    range_x = math.ceil((bounds[3] - bounds[1]) / 1000) * 100
+    range_y = ceil((bounds[2] - bounds[0]) / 1000) * 100
+    range_x = ceil((bounds[3] - bounds[1]) / 1000) * 100
     arr = np.random.randint(5, size=(range_x, range_y)).astype(int)
     transform = from_origin(bounds[0], bounds[3], 10, 10)
     new_dataset = rasterio.open('temp/reference_raster.tif', 'w', driver='GTiff',

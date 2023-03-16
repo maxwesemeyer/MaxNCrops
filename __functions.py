@@ -1,5 +1,5 @@
 import random
-from math import sqrt, log
+from math import sqrt, log, ceil
 from osgeo import gdal
 import gurobipy as gp
 from gurobipy import GRB
