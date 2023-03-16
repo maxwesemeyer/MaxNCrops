@@ -1,2 +1,2 @@
 # MaxNCrops
-# Important stuff to understand the Project
+Important stuff to understand the Project
