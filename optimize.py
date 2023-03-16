@@ -1,26 +1,41 @@
-import pandas as pd
-
 from create_dicts_script import *
 from rasterize_script import *
 from analyse_solution import *
 
+"""
+by Maximilian Wesemeyer
 
-if __name__ == '__main__':
-    ############################################################################
-    # the agg_length controls the size of the landscape pixels; agg_length of 100 and 10m pixel equals a km²
-    # Zero is the no data value for farms; farm_id == 0 will be ignored.
-    agg_length = 100
-    # Tolerance value in percent
-    tolerance = 1
-    # rasterization necessary?
-    rasterize = False
-    count_pixel_per_block = agg_length**2
-    crop_type_column = 'ID_KTYP'
-    farm_id_column = 'farm_id'
-    # What diversity to calculate? chose either 'attainable' or 'potential'
-    diversity_type = 'attainable'
-    # If 'potential' is selected, there are no farm acreage constraints
-    ############################################################################
+"""
+############################################################################
+# the agg_length controls the size of the landscape pixels; agg_length of 100 and 10m pixel equals a km²
+# Zero is the no data value for farms; farm_id == 0 will be ignored.
+agg_length = 100
+count_pixel_per_block = agg_length ** 2
+
+# Tolerance value in percent; Controls the allowed deviation per crop and farm
+tolerance = 1
+
+# rasterization necessary? can be set to False to speed up the process if run a second time
+rasterize = True
+
+# state here the column names in the Shapefile
+crop_type_column = 'ID_KTYP'
+farm_id_column = 'farm_id'
+
+# What diversity to calculate? chose either 'attainable' or 'potential'
+# If 'potential' is selected, there are no farm acreage constraints
+diversity_type = 'attainable'
+
+############################################################################
+
+
+def run_optimization():
+    if not os.path.exists("temp"):
+        # Create the temp directory if it does not exist
+        os.makedirs("temp")
+    if not os.path.exists("output"):
+        # Create the output directory if it does not exist
+        os.makedirs("output")
     if rasterize:
         print('rasterizing...')
         rasterize_input_shp(crop_type_column=crop_type_column, farm_id_column=farm_id_column)
@@ -211,4 +226,9 @@ if __name__ == '__main__':
                 #print(error)
                 error += 1
         print('errors: ', error)
+
+
+if __name__ == '__main__':
+    run_optimization()
+
 

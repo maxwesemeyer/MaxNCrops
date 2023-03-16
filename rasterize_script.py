@@ -1,12 +1,3 @@
-import glob
-import os.path
-import geopandas as gpd
-import rasterio
-from rasterio import features
-import numpy as np
-from rasterio.transform import from_origin
-import math
-
 
 def create_reference_raster(gpd_frame):
     # creates a reference raster in 10m resolution that covers the study area and will be used for rasterization

@@ -12,6 +12,11 @@ from scipy.sparse import csr_matrix
 import pickle
 import os
 import glob
+import os.path
+import rasterio
+from rasterio import features
+from rasterio.transform import from_origin
+import math
 
 
 def compute_M(data):
