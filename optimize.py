@@ -26,6 +26,8 @@ farm_id_column = 'farm_id'
 # If 'potential' is selected, there are no farm acreage constraints
 diversity_type = 'attainable'
 
+# Model infeasible? If your model is infeasible set this to True and it will generate a "my
+m_infeas = False
 ############################################################################
 
 
@@ -160,11 +162,13 @@ def run_optimization():
                     [(farm_field_dict[farm][0, id_]) * vars[str(crop)][id_] for id_ in indices_farm_i]) <= thrs + thrs * (
                                     tolerance / 100), '{0}'.format(crop) + '_' + str(farm) + '_2' )
 
+    # in case the model is not feasible try this:
+    if m_infeas:
+        iis = m.computeIIS()
+        m.write('my_iis.ilp')
+
     # default is minimize
     m.setObjective(obj, GRB.MAXIMIZE)
-    # in case the model is not feasible try this:
-    #iis = m.computeIIS()
-    #m.write('my_iis.ilp')
     #m.write('maxent_lp.lp')
     m.optimize()
 
