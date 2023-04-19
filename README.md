@@ -5,3 +5,4 @@ Field boundaries do not change and it consideres only crops that have been culti
 
 You can download the Project and easily run it with our example data. 
 You can also run it with your own IACS data. You only need IACS inlcuding a farm ID and a crop type information per agricultural field. 
+
