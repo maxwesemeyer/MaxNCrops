@@ -5,7 +5,9 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
 
     shp_p = './temp/iacs.shp'
     crop_arr = gdal.Open('./temp/IDKTYP.tif').ReadAsArray().astype(int)
-    field_id_arr = gdal.Open('./temp/Field_ID.tif').ReadAsArray().astype(int)
+    ds_fid = gdal.Open('./temp/Field_ID.tif')
+    gt_fid = ds_fid.GetGeoTransform()
+    field_id_arr = ds_fid.ReadAsArray().astype(int)
 
     farmid_arr = gdal.Open('./temp/Farm_ID.tif').ReadAsArray().astype(int)
 
@@ -80,16 +82,28 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     # this will be used to makes constraints in the optimization later
     if not os.path.isfile('./temp/historic_croptypes_dict.pkl'):
         print('Using as historic croptypes: ', glob.glob('./input/*.tif')[0])
-        hist_croptypes = gdal.Open(glob.glob('./input/*.tif')[0]).ReadAsArray()
+        ds_hist = gdal.Open(glob.glob('./input/*.tif')[0])
+        gt_hist = ds_hist.GetGeoTransform()
+        print(gt_hist, gt_fid, gt_hist[0] == gt_fid[0], gt_hist[3] == gt_fid[3])
+
+        hist_croptypes = ds_hist.ReadAsArray()
+
         if hist_croptypes.shape[1] - field_id_arr.shape[0] > 0:
-            print('not implemented; Historic croptypes extent does not match')
+            # slice array to match the shape of the other rasters
+            diff_abs = abs(field_id_arr.shape[0] - hist_croptypes.shape[1])
+            new_length = hist_croptypes.shape[1] - diff_abs
+            hist_croptypes = hist_croptypes[:, :new_length, :]
         elif hist_croptypes.shape[1] - field_id_arr.shape[0] < 0:
             # add emtpy cols and rows to hist croptypes
             add = field_id_arr.shape[0] - hist_croptypes.shape[1]
             hist_croptypes = np.pad(hist_croptypes, ((0, 0), (0, add), (0, 0)), 'constant', constant_values=(0))
         if hist_croptypes.shape[2] - field_id_arr.shape[1] > 0:
-            print('not implemented; Historic croptypes extent does not match')
+            # slice array to match the shape of the other rasters
+            diff_abs = abs(field_id_arr.shape[1] - hist_croptypes.shape[2])
+            new_length = hist_croptypes.shape[2] - diff_abs
+            hist_croptypes = hist_croptypes[:, :, :new_length]
         elif hist_croptypes.shape[2] - field_id_arr.shape[1] < 0:
+            # add emtpy cols and rows to hist croptypes
             add = field_id_arr.shape[1] - hist_croptypes.shape[2]
             hist_croptypes = np.pad(hist_croptypes, ((0, 0), (0, 0), (0, add)), 'constant', constant_values=(0))
 

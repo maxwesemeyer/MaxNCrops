@@ -12,10 +12,10 @@ agg_length = 100
 count_pixel_per_block = agg_length ** 2
 
 # Tolerance value in percent; Controls the allowed deviation per crop and farm
-tolerance = 5
+tolerance = 1
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
-rasterize = True
+rasterize = False
 
 # state here the column names in the Shapefile
 crop_type_column = 'ID_KTYP'
