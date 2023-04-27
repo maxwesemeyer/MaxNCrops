@@ -7,11 +7,14 @@ You can download the Project and easily run it with our example data.
 You can also run it with your own IACS data. You only need IACS inlcuding a farm ID and a crop type information per agricultural field. 
 
 You can use the requirements.txt to install the necessary packages like this: 
+
 Build a new environment from spec list file
-
+```
 conda create --name myenv -f requirements.txt
-
+```
+```
 Recreate from environment.yml file
-
+```
+```
 conda env create -f environment.yml
-
+```
