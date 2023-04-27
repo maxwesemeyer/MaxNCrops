@@ -185,9 +185,11 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
 
         for year in range(n_bands):
             historic, counts = np.unique(historic_croptypes_array[year, mask], return_counts=True)
+            if i == 0:
+                historic_cultivations.append(historic[np.argsort(counts)[0]])
             # In case of a very small field it is possible that the 0 class has the highest count; In this case the second
             # highest value is chosen
-            if historic[np.argmax(counts)] == 0:
+            elif historic[np.argmax(counts)] == 0:
                 historic_cultivations.append(historic[np.argsort(counts)[-2]])
             else:
                 historic_cultivations.append(historic[np.argmax(counts)])
