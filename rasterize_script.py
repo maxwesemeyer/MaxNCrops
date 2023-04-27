@@ -10,13 +10,13 @@ def create_reference_raster(gpd_frame, reference_gt):
     # this way the extent becomes divisible by 100
     range_y = ceil((bounds[2] - reference_gt[0]) / 1000) * 100
     range_x = ceil((reference_gt[3] - bounds[1]) / 1000) * 100
-    arr = np.random.randint(5, size=(range_x, range_y)).astype(int)
+    arr = np.random.randint(5, size=(range_x, range_y)).astype('int8')
 
     transform = from_origin(reference_gt[0], reference_gt[3], resolution, resolution)
     new_dataset = rasterio.open('temp/reference_raster.tif', 'w', driver='GTiff',
                                 height=arr.shape[0], width=arr.shape[1],
                                 count=1,
-                                dtype=np.dtype(int),
+                                dtype=rasterio.int16,
                                 crs=crs,
                                 transform=transform)
     new_dataset.write(arr, 1)
