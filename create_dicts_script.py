@@ -1,3 +1,5 @@
+import numpy as np
+
 from __functions import *
 
 
@@ -45,11 +47,6 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     num_block_y = int(len_raster / agg_length)
     num_blocks = int(num_block_y ** 2)
 
-    if not os.path.isfile('./temp/shares_iacs.csv'):
-        dissolved_shares_farm_crop = iacs_gp.copy().dissolve(by=[farm_id_column, crop_type_column])
-        dissolved_shares_farm_crop['area_m2'] = dissolved_shares_farm_crop.area
-        dissolved_shares_farm_crop.to_csv('./temp/shares_iacs.csv')
-
     ##########################################################
     # get the initial landscape shannon diversity, number of unique crops per landscape and the proportion of
     # agricultural area per landscape and write to disk
@@ -76,7 +73,11 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
                                    outPath='./output/agricultural_area_ha',
                                    dtype=gdal.GDT_Int32, noDataValue=0, scaler=1, adapt_pixel_size=True,
                                    adapted_pixel_size=100)
-
+    #########################################################################
+    if not os.path.isfile('./temp/shares_iacs.csv'):
+        dissolved_shares_farm_crop = iacs_gp.copy().dissolve(by=[farm_id_column, crop_type_column])
+        dissolved_shares_farm_crop['area_m2'] = dissolved_shares_farm_crop.area
+        dissolved_shares_farm_crop.to_csv('./temp/shares_iacs.csv')
     #########################################################################
     # we get the crop types for each field that have not been on that field in the past
     # this will be used to makes constraints in the optimization later
@@ -106,10 +107,53 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
             # add emtpy cols and rows to hist croptypes
             add = field_id_arr.shape[1] - hist_croptypes.shape[2]
             hist_croptypes = np.pad(hist_croptypes, ((0, 0), (0, 0), (0, add)), 'constant', constant_values=(0))
-
-        historic_croptypes_dict = get_historic_croptypes(field_id_array=field_id_arr, historic_croptypes_array=hist_croptypes, unique_croptypes=unique_crops)
+        write_array_disk_universal(hist_croptypes, './temp/reference_raster.tif',
+                                   outPath='./temp/hist_croptypes_adapted',
+                                   dtype=gdal.GDT_Int16, scaler=1, adapt_pixel_size=False)
+        taboo_croptypes_dict, historic_croptypes_dict = get_historic_croptypes(field_id_array=field_id_arr, historic_croptypes_array=hist_croptypes, unique_croptypes=unique_crops)
         with open('./temp/historic_croptypes_dict.pkl', 'wb') as f:
             pickle.dump(historic_croptypes_dict, f)
+        with open('./temp/taboo_croptypes_dict.pkl', 'wb') as f:
+            pickle.dump(taboo_croptypes_dict, f)
+
+    with open('./temp/historic_croptypes_dict.pkl', 'rb') as f:
+        historic_croptypes_dict = pickle.load(f)
+    # append the historic crop types to the shapefile to calculate the crop acreage per farm later
+    hist_crops_list = []
+    for fid in unique_field_ids:
+        hist_crops_list.append(historic_croptypes_dict[fid])
+    hist_df = pd.DataFrame(np.stack(hist_crops_list, axis=0))
+
+    hist_df.columns = ['crp_yr_' + str(year) for year in range(len(hist_df.columns))]
+    hist_df['field_id'] = unique_field_ids
+    iacs_gp = pd.merge(iacs_gp, hist_df, on="field_id")
+
+    n_years = len(historic_croptypes_dict[1])
+
+    # Calculate the crop acreage for each farm and crop for each year
+    # Here we have to make the following assumptions:
+    #   a) each field belongs to the same farm throughout the entire time period
+    #   b) the field geometries do not change in the entire period
+    if not os.path.isfile('./temp/shares_iacs_seq.csv'):
+        for year in range(n_years):
+            if year == 0:
+                dissolved_shares_farm_crop = iacs_gp.copy().dissolve(by=[farm_id_column, 'crp_yr_' + str(year)])
+                dissolved_shares_farm_crop['area_m2'] = dissolved_shares_farm_crop.area
+                dissolved_shares_farm_crop['year'] = year
+                dissolved_shares_farm_crop = dissolved_shares_farm_crop.reset_index()
+                dissolved_shares_farm_crop = dissolved_shares_farm_crop[[farm_id_column, 'crp_yr_' + str(year), 'area_m2', 'year']]
+                dissolved_shares_farm_crop.columns = [farm_id_column, crop_type_column, 'area_m2', 'year']
+            else:
+                dissolved_shares_farm_crop_iter = iacs_gp.copy().dissolve(by=[farm_id_column, 'crp_yr_' + str(year)])
+                dissolved_shares_farm_crop_iter['area_m2'] = dissolved_shares_farm_crop_iter.area
+                dissolved_shares_farm_crop_iter['year'] = year
+                dissolved_shares_farm_crop_iter = dissolved_shares_farm_crop_iter.reset_index()
+                dissolved_shares_farm_crop_iter = dissolved_shares_farm_crop_iter[
+                    [farm_id_column, 'crp_yr_' + str(year), 'area_m2', 'year']]
+                dissolved_shares_farm_crop_iter.columns = [farm_id_column, crop_type_column, 'area_m2', 'year']
+                dissolved_shares_farm_crop = pd.concat([dissolved_shares_farm_crop, dissolved_shares_farm_crop_iter], ignore_index=True)
+
+        dissolved_shares_farm_crop.to_csv('./temp/shares_iacs_seq.csv')
     ####################################################################################################################
     # creates a dictionary which states which indices of a one-dimensional array belong to a certain block
     if not os.path.isfile('./temp/spatial_aggregation_dict.pkl'):

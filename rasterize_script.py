@@ -18,7 +18,7 @@ def create_reference_raster(gpd_frame, reference_gt):
     new_dataset = rasterio.open('temp/reference_raster.tif', 'w', driver='GTiff',
                                 height=arr.shape[0], width=arr.shape[1],
                                 count=1,
-                                dtype=np.dtype(np.int),
+                                dtype=np.dtype(int),
                                 crs=crs,
                                 transform=transform)
     new_dataset.write(arr, 1)
