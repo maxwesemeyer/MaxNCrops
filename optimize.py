@@ -11,7 +11,7 @@ agg_length = 100
 count_pixel_per_block = agg_length ** 2
 
 # Tolerance value in percent; Controls the allowed deviation per crop and farm
-tolerance = 5
+tolerance = 10
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
 rasterize = True
@@ -53,7 +53,6 @@ def run_optimization():
 
     with open('./temp/taboo_croptypes_dict.pkl', 'rb') as f:
         taboo_croptypes_dict = pickle.load(f)
-    print('Hist check', taboo_croptypes_dict[100])
     # the structure of farm_field_dict is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
     with open('./temp/farm_field_dict.pkl', 'rb') as f:
         farm_field_dict = pickle.load(f)
