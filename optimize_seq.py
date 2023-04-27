@@ -1,5 +1,3 @@
-import numpy as np
-
 from create_dicts_script import *
 from rasterize_script import *
 from analyse_solution import *
@@ -203,6 +201,7 @@ def run_optimization():
         m.write('my_iis.ilp')
 
     m.write('maxent_lp.lp')
+    m.params.Heuristics = 0.9
     m.optimize()
 
     ####################################################################################################################

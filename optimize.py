@@ -2,7 +2,6 @@ from create_dicts_script import *
 from rasterize_script import *
 from analyse_solution import *
 
-
 ########################################################################################################################
 # by Maximilian Wesemeyer
 
