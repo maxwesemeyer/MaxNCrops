@@ -159,6 +159,7 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
     print('creating historic crop type dictionary...')
     taboo_crops_list = []
     unique_id_list = []
+    historic_crops_list = []
     n_bands = historic_croptypes_array.shape[0]
     historic_croptypes_array = np.reshape(historic_croptypes_array, newshape=(historic_croptypes_array.shape[0], historic_croptypes_array.shape[1]*historic_croptypes_array.shape[2]))
 
@@ -203,6 +204,7 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
             #taboo_crops = taboo_crops[:-1]
             taboo_crops = []
         taboo_crops_list.append(taboo_crops)
-
-    historic_croptypes_dict = dict(zip(unique_id_list, taboo_crops_list))
-    return historic_croptypes_dict
+        historic_crops_list.append(historic_cultivations)
+    taboo_croptypes_dict = dict(zip(unique_id_list, taboo_crops_list))
+    historic_croptypes_dict = dict(zip(unique_id_list, historic_crops_list))
+    return taboo_croptypes_dict, historic_croptypes_dict

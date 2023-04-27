@@ -2,7 +2,6 @@ from create_dicts_script import *
 from rasterize_script import *
 from analyse_solution import *
 
-
 ########################################################################################################################
 # by Maximilian Wesemeyer
 
@@ -12,10 +11,10 @@ agg_length = 100
 count_pixel_per_block = agg_length ** 2
 
 # Tolerance value in percent; Controls the allowed deviation per crop and farm
-tolerance = 1
+tolerance = 5
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
-rasterize = False
+rasterize = True
 
 # state here the column names in the Shapefile
 crop_type_column = 'ID_KTYP'
@@ -52,9 +51,9 @@ def run_optimization():
     ####################################################################################################################
     shares_croptypes = pd.read_csv('./temp/shares_iacs.csv')
 
-    with open('./temp/historic_croptypes_dict.pkl', 'rb') as f:
-        historic_croptypes_dict = pickle.load(f)
-
+    with open('./temp/taboo_croptypes_dict.pkl', 'rb') as f:
+        taboo_croptypes_dict = pickle.load(f)
+    print('Hist check', taboo_croptypes_dict[100])
     # the structure of farm_field_dict is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
     with open('./temp/farm_field_dict.pkl', 'rb') as f:
         farm_field_dict = pickle.load(f)
@@ -131,14 +130,14 @@ def run_optimization():
             # this constraint ensures that the nodata class cannot be applied to agricultural parcels
             m.addConstr(vars[str(0)][i] == 0, 'nodata_fixed_2' + str(i))
             try:
-                taboo_crops = historic_croptypes_dict[id]
+                taboo_crops = taboo_croptypes_dict[id]
                 for crop in unique_crops:
                     if crop in taboo_crops and crop < 99:
                         m.addConstr(vars[str(crop)][i] == 0, 'taboo_crop_' + str(crop) + '_' + str(id))
             except:
                 None
 
-    del historic_croptypes_dict
+    del taboo_croptypes_dict
 
     ####################################################################################################################
     # A constraint for each crop type and each farm using the block_dict_farms
