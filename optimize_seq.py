@@ -163,7 +163,7 @@ def run_optimization():
     if diversity_type == 'attainable':
         for ct, farm in enumerate(unique_farms):
             print(ct, 'of', len(unique_farms), 'crop proportion per farm constraints')
-            if farm == 0 or farm == -999.0:
+            if farm == 0 or farm == nd_value:
                 print('skipping farm', farm)
                 continue
             indices_farm_i = farm_field_dict[farm].indices

@@ -14,10 +14,11 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     sparse_idx = get_indices_sparse(field_id_arr.astype(int))
 
     unique_crops = np.unique(crop_arr).astype(int).tolist()
-
-    print('number of unique crop types:', len(unique_crops), 'crops: ', unique_crops, 'including no data value')
+    if verbatim:
+        print('number of unique crop types:', len(unique_crops), 'crops: ', unique_crops, 'including no data value')
     unique_farms = np.unique(farmid_arr)
-    print('number of farms', len(unique_farms))
+    if verbatim:
+        print('number of farms', len(unique_farms))
 
     iacs_gp = gpd.read_file(shp_p)
     iacs_gp['area_m2'] = iacs_gp.area
@@ -37,7 +38,7 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
         start_vals.append(start_vals_crop)
 
     field_id_arr_1d = field_id_arr.flatten()
-    field_id_arr_1d[np.where(field_id_arr_1d == -999)] = 0
+    field_id_arr_1d[np.where(field_id_arr_1d == nd_value)] = 0
 
     size_of_test_data = field_id_arr_1d.shape[0]
 
@@ -48,9 +49,10 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     ##########################################################
     # get the initial landscape shannon diversity, number of unique crops per landscape and the proportion of
     # agricultural area per landscape and write to disk
-    if os.path.isfile('./output/initial_count.tif') and os.path.isfile('./output/initial_entropy.tif') and \
+    if os.path.isfile('./output/initial_count.tif') and os.path.isfile('./output/initial_ShanDiv.tif') and \
             os.path.isfile('./output/agricultural_area_ha.tif'):
-        print('skipping entropy calc')
+        if verbatim:
+            print('skipping entropy calc')
 
     else:
         total_entropy, img_ha = get_entropy(crop_arr, agg_len=100, return_agr_area=True)
@@ -58,7 +60,7 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
         total_entropy, img_div = get_entropy(crop_arr, agg_len=100, return_ShannonDiv_2d=True)
 
         write_array_disk_universal(np.expand_dims(img_div, axis=0), './temp/reference_raster.tif',
-                                   outPath='./output/initial_entropy',
+                                   outPath='./output/initial_ShanDiv',
                                    dtype=gdal.GDT_Int32, noDataValue=0, scaler=1000, adapt_pixel_size=True,
                                    adapted_pixel_size=100)
 
@@ -80,10 +82,13 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     # we get the crop types for each field that have not been on that field in the past
     # this will be used to makes constraints in the optimization later
     if not os.path.isfile('./temp/historic_croptypes_dict.pkl'):
-        print('Using as historic croptypes: ', glob.glob('./input/*.tif')[0])
+        if verbatim:
+            print('Using as historic croptypes: ', glob.glob('./input/*.tif')[0])
         ds_hist = gdal.Open(glob.glob('./input/*.tif')[0])
         gt_hist = ds_hist.GetGeoTransform()
-        print(gt_hist, gt_fid, gt_hist[0] == gt_fid[0], gt_hist[3] == gt_fid[3])
+        if verbatim:
+            print('checking geotransforms of historic croptypes and rasterized data')
+            print(gt_hist, gt_fid, gt_hist[0] == gt_fid[0], gt_hist[3] == gt_fid[3])
 
         hist_croptypes = ds_hist.ReadAsArray()
 
@@ -155,12 +160,14 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     ####################################################################################################################
     # creates a dictionary which states which indices of a one-dimensional array belong to a certain block
     if not os.path.isfile('./temp/spatial_aggregation_dict.pkl'):
-        print(num_blocks)
+        if verbatim:
+            print(num_blocks)
         count_pixel_per_block = agg_length ** 2
         agg_dicts = []
         block_counter = 0
         for row in range(num_block_y):
-            print(row, num_block_y)
+            if verbatim:
+                print(row, num_block_y)
             for i in range(0, agg_length * num_block_y, agg_length):
                 if block_counter == num_blocks:
                     break
@@ -201,7 +208,8 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
             if farm == 0:
                 out_shares_farms.append(0)
                 continue
-            print(ct, 'of', len(unique_farms), farm)
+            if verbatim:
+                print(ct, 'of', len(unique_farms), farm)
             out_shares = []
             iacs_gp_subset = iacs_gp[iacs_gp[farm_id_column] == farm]
             field_ids_iter = iacs_gp_subset['field_id'].tolist()
@@ -231,7 +239,8 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
 
         out_shares = []
         for block_i in range(num_blocks):
-            print(block_i, 'of', num_blocks)
+            if verbatim:
+                print(block_i, 'of', num_blocks)
             # 10x10 m Pixels -> have to multiply by 10*10 to convert to square meters
             ids = field_id_arr_1d[spatial_aggregration_dictionary[block_i]]
             collect = collections.Counter(ids)
@@ -252,7 +261,6 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
 
         with open('./temp/block_dict.pkl', 'rb') as f:
             block_dict = pickle.load(f)
-        print(len(block_dict))
 
     return crop_arr, field_id_arr, farmid_arr, sparse_idx, \
            unique_crops, unique_field_ids, iacs_gp, unique_farms, field_id_arr_1d, size_of_test_data, len_raster, \

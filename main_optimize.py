@@ -1,32 +1,10 @@
 from create_dicts import *
 from rasterize import *
 from analyse_solution import *
+from config import *
 
 ########################################################################################################################
 # by Maximilian Wesemeyer
-
-# the agg_length controls the size of the landscape pixels; agg_length of 100 and 10m pixel equals a km²
-# Zero is the no data value for farms; farm_id == 0 will be ignored.
-agg_length = 100
-count_pixel_per_block = agg_length ** 2
-
-# Tolerance value in percent; Controls the allowed deviation per crop and farm
-tolerance = 10
-
-# rasterization necessary? can be set to False to speed up the process if run a second time
-rasterize = True
-
-# state here the column names in the Shapefile
-crop_type_column = 'ID_KTYP'
-farm_id_column = 'farm_id'
-
-# What diversity to calculate? chose either 'attainable' or 'potential'
-# If 'potential' is selected, there are no farm acreage constraints
-diversity_type = 'attainable'
-
-# Model infeasible? If your model is infeasible set this to True and it will generate a "my_iis.ilp" file
-# The Irreducible Inconsistent Subsystem (iis) helps to understand why a model is infeasible
-m_infeas = False
 ########################################################################################################################
 
 
@@ -47,7 +25,8 @@ def run_optimization():
                                                                                       crop_type_column=crop_type_column,
                                                                                       farm_id_column=farm_id_column)
 
-    print(len(unique_field_ids), 'number of decision units')
+    if verbatim:
+        print(len(unique_field_ids), 'number of decision units')
     ####################################################################################################################
     shares_croptypes = pd.read_csv('./temp/shares_iacs.csv')
 
@@ -64,17 +43,19 @@ def run_optimization():
 
     with open('./temp/block_dict.pkl', 'rb') as f:
         block_dict = pickle.load(f)
+    if verbatim:
+        print(len(unique_crops), 'unique crops check all crop types', unique_crops)
     ####################################################################################################################
     # Create the Gurobi model
     m = gp.Model("Maximum Landscape Entropy")
 
     vars = {}
-    print(len(unique_crops), 'unique crops check all crop types', unique_crops)
     for i, crop in enumerate(unique_crops):
         crop = str(crop)
         vars["{0}".format(crop)] = m.addVars(len(unique_field_ids), vtype=GRB.BINARY, name=crop)
         if crop != str(0):
-            print('setting start', crop)
+            if verbatim:
+                print('setting start', crop)
             vars["{0}".format(crop)].Start = start_vals[i-1]
 
     # The helper will be used as variable that is 1 if a crop type exists in a landscape and else is 0
@@ -91,7 +72,8 @@ def run_optimization():
     M = 1e5
 
     for i in range(num_blocks):
-        print(i+1, '/', num_blocks, 'adding if else constraints')
+        if verbatim:
+            print(i+1, '/', num_blocks, 'adding if else constraints')
         tempvars = {}
 
         indices_block_i = block_dict[i].indices
@@ -122,9 +104,11 @@ def run_optimization():
     m.addConstr(vars[str(0)][0] == 1, 'nodata_fixed')
 
     for i, id in enumerate(unique_field_ids):
-        print(i+1, ' of ', len(unique_field_ids), 'taboo constraints')
+        if verbatim:
+            print(i+1, ' of ', len(unique_field_ids), 'taboo constraints')
         if i == 0:
-            print('skipping')
+            if verbatim:
+                print('skipping')
         else:
             # this constraint ensures that the nodata class cannot be applied to agricultural parcels
             m.addConstr(vars[str(0)][i] == 0, 'nodata_fixed_2_' + str(i))
@@ -145,9 +129,11 @@ def run_optimization():
     # This constraint is only enforced if diversity_type = 'attainable'
     if diversity_type == 'attainable':
         for ct, farm in enumerate(unique_farms):
-            print(ct+1, 'of', len(unique_farms), 'crop composition per farm constraints')
-            if farm == 0 or farm == -999.0:
-                print('skipping farm', farm)
+            if verbatim:
+                print(ct+1, 'of', len(unique_farms), 'crop composition per farm constraints')
+            if farm == 0 or farm == nd_value:
+                if verbatim:
+                    print('skipping farm', farm)
                 continue
             indices_farm_i = farm_field_dict[farm].indices
             for i_crop, crop in enumerate(unique_crops):
@@ -218,7 +204,7 @@ def run_optimization():
 
     diss_init = iacs_gp.dissolve(by=[farm_id_column, crop_type_column], as_index=False).copy()
     diss_init['area_init'] = diss_init.area * 0.0001
-    print(diss_init)
+
     diss_opt = iacs_gp.dissolve(by=[farm_id_column, 'OPT_KTYP'], as_index=False).copy()
     diss_opt['area_opt'] = diss_opt.area * 0.0001
     merged = pd.merge(diss_init, diss_opt, left_on=['farm_id', 'ID_KTYP'], right_on=['farm_id', 'OPT_KTYP'])

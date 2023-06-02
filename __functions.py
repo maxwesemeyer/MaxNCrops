@@ -16,6 +16,7 @@ import os.path
 import rasterio
 from rasterio import features
 from rasterio.transform import from_origin
+from config import *
 
 
 def compute_M(data):
@@ -34,7 +35,8 @@ def write_array_disk_universal(array, reference_raster, outPath, scaler=1, out_f
     """
     outpath should be without the file ending
     """
-    print('writing raster: ', outPath)
+    if verbatim:
+        print('writing raster: ', outPath)
     nd_mask = np.where(array == noDataValue)
     array = array * scaler
     array[nd_mask] = noDataValue
@@ -97,7 +99,7 @@ def get_entropy(map_2d, agg_len, return_ShannonDiv_2d=False, return_count=False,
             entropy = -np.sum(prob * np.log(prob))
 
             if area_ha == 0:
-                entropy_list.append(-999)
+                entropy_list.append(nd_value)
                 continue
             #counts = counts / total_n_pixel_block
             #entropy = -sum(np.array(counts) * np.log(counts))
@@ -115,33 +117,6 @@ def get_entropy(map_2d, agg_len, return_ShannonDiv_2d=False, return_count=False,
     # Returns shannon diversity as well but not as 2d np array
     else:
         return entropy_list
-
-
-def get_shares_farm(farm_id_arr, crop_id_arr):
-    # iterate through farms and crop types; get the share of each crop type in each farm
-    unique_crops = np.unique(crop_id_arr)
-    shares_list = []
-    crop_list = []
-    farm_list = []
-
-    sparse_idx = get_indices_sparse(farm_id_arr.astype(int))
-    for i, farm_id in enumerate(sparse_idx):
-        if farm_id == -999:
-            continue
-        farm_mask = farm_id
-        # farm_mask = np.where(farm_id_arr == farm_id, True, False)
-        farm_crop_id_arr = crop_id_arr[farm_mask]
-        collect = collections.Counter(farm_crop_id_arr)
-
-        for crop in unique_crops:
-            if crop == -999:
-                continue
-            # Only true if we used 10m Pixels
-            crop_share_farm_m2 = collect[crop] * 100
-            shares_list.append(crop_share_farm_m2)
-            crop_list.append(crop)
-            farm_list.append(i)
-    return farm_list, crop_list, shares_list
 
 
 def get_historic_croptypes_artificialdata(unique_field_ids):
@@ -175,7 +150,7 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
         if id[0].size == 0:
             continue
         # create a mask for the id
-        if id == -999:
+        if id == nd_value:
             unique_id_list.append(0)
         else:
             unique_id_list.append(float(i))
@@ -201,9 +176,10 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
                 taboo_crops.append(float(x))
         # unique croptypes contains 0 taboo crops cannot contain 0 -> len - 1
         if len(taboo_crops) >= len(unique_croptypes)-1:
-            print(i, id, historic_cultivations)
-            print('Error; setting no crops as taboo', taboo_crops, unique_croptypes, i)
-            #taboo_crops = taboo_crops[:-1]
+            #print(i, id, historic_cultivations)
+            if i > 0:
+                # i == 0 refers to the area that surrounds all fields; So in this case the warning can be ignored
+                print('no data available; setting no crops as taboo for field', i, taboo_crops, unique_croptypes)
             taboo_crops = []
         taboo_crops_list.append(taboo_crops)
         historic_crops_list.append(historic_cultivations)

@@ -13,7 +13,7 @@ def analyse_solution_seq(tolerance=1):
 
     print('UNIQUE INIT: ', np.unique(init), 'UNIQUE OPT: ', np.unique(opt))
     farm_id = gdal.Open('./temp/Farm_ID.tif').ReadAsArray()
-    nd_value = -999
+
     n_years = opt.shape[0]
     img_entr_init_list = []
     img_entr_opt_list = []
@@ -101,8 +101,7 @@ def analyse_solution_seq(tolerance=1):
 def analyse_solution(tolerance=1):
     init = gdal.Open('./temp/IDKTYP.tif').ReadAsArray()
     opt = gdal.Open('./output/opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
-    farm_id = gdal.Open('./temp/Farm_ID.tif').ReadAsArray()
-    nd_value = -999
+
     a, img_init = get_entropy(init, 100, return_count=True)
     a, img_opt = get_entropy(opt, 100, return_count=True)
 
@@ -139,14 +138,6 @@ def analyse_solution(tolerance=1):
 
     ##########################################################
     # get shares of inital crop shares and save them to a csv file
-    shares = get_shares_farm(farm_id.astype(int), init.astype(int))
-    out_dict = {'farm_id': shares[0], 'ID_KTYP': shares[1], 'area_m2': shares[2]}
-    pd.DataFrame(out_dict).to_csv('./output/shares_init.csv')
-
-    shares = get_shares_farm(farm_id.astype(int).flatten(), opt.astype(int).flatten())
-    out_dict = {'farm_id': shares[0], 'ID_KTYP': shares[1], 'area_m2': shares[2]}
-    pd.DataFrame(out_dict).to_csv('./output/shares_opt_' + str(tolerance) + '.csv')
-
     img_nan_init = img_entr_init.astype(float)
     img_nan_init[np.where(img_nan_init == nd_value, True, False)] = np.nan
 
