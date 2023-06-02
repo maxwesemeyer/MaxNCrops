@@ -27,8 +27,8 @@ def analyse_solution_seq(tolerance=1):
         a, img_init = get_entropy(init[year, :, :], 100, return_count=True)
         a, img_opt = get_entropy(opt[year, :, :], 100, return_count=True)
         # TODO calculate init for each year; set 99 and 255 to the same class (0?) to use similar classes to opt
-        a, img_entr_init = get_entropy(init[year, :, :], 100, return_img=True)
-        a, img_entr_opt = get_entropy(opt[year, :, :], 100, return_img=True)
+        a, img_entr_init = get_entropy(init[year, :, :], 100, return_ShannonDiv_2d=True)
+        a, img_entr_opt = get_entropy(opt[year, :, :], 100, return_ShannonDiv_2d=True)
 
         img_ct_init_list.append(img_init)
         img_ct_opt_list.append(img_opt)
@@ -100,14 +100,14 @@ def analyse_solution_seq(tolerance=1):
 
 def analyse_solution(tolerance=1):
     init = gdal.Open('./temp/IDKTYP.tif').ReadAsArray()
-    opt = gdal.Open('./output/maxent_croptypes_' + str(tolerance) + '.tif').ReadAsArray()
+    opt = gdal.Open('./output/opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
     farm_id = gdal.Open('./temp/Farm_ID.tif').ReadAsArray()
     nd_value = -999
     a, img_init = get_entropy(init, 100, return_count=True)
     a, img_opt = get_entropy(opt, 100, return_count=True)
 
-    a, img_entr_init = get_entropy(init, 100, return_img=True)
-    a, img_entr_opt = get_entropy(opt, 100, return_img=True)
+    a, img_entr_init = get_entropy(init, 100, return_ShannonDiv_2d=True)
+    a, img_entr_opt = get_entropy(opt, 100, return_ShannonDiv_2d=True)
 
     a, agr_area = get_entropy(opt, 100, return_agr_area=True)
 
@@ -124,13 +124,13 @@ def analyse_solution(tolerance=1):
 
     write_array_disk_universal(np.expand_dims(img_entr_init, axis=0),
                                './temp/reference_raster.tif',
-                               outPath='./output/initial_entropy',
+                               outPath='./output/initial_ShanDiv',
                                dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
                                adapted_pixel_size=100)
 
     write_array_disk_universal(np.expand_dims(img_entr_opt, axis=0),
                                './temp/reference_raster.tif',
-                               outPath='./output/opt_entropy_' + str(tolerance),
+                               outPath='./output/opt_ShanDiv_' + str(tolerance),
                                dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
                                adapted_pixel_size=100)
     pd.DataFrame(
@@ -153,8 +153,8 @@ def analyse_solution(tolerance=1):
     img_nan_opt = img_entr_opt.astype(float)
     img_nan_opt[np.where(img_nan_opt == nd_value, True, False)] = np.nan
 
-    print('intial entropy avg: ', np.nanmean(img_nan_init.flatten()),
-          'optimized avg: ', np.nanmean(img_nan_opt.flatten()),
-          'difference abs: ', np.nanmean(img_nan_opt.flatten())-np.nanmean(img_nan_init.flatten()),
-          'Diff in percent:',
+    print('intial Shannon diversity average: ', np.nanmean(img_nan_init.flatten()),
+          'optimized Shannon diversity average: ', np.nanmean(img_nan_opt.flatten()),
+          'difference absolute: ', np.nanmean(img_nan_opt.flatten())-np.nanmean(img_nan_init.flatten()),
+          'difference in percent:',
           ((np.nanmean(img_nan_opt.flatten())-np.nanmean(img_nan_init.flatten()))/np.nanmean(img_nan_init.flatten()))*100)

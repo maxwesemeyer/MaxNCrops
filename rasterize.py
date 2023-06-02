@@ -44,7 +44,7 @@ def rasterize_input_shp(crop_type_column=None, farm_id_column=None):
         burned = features.rasterize(shapes=shapes, fill=0, out=out_arr, transform=out.transform)
         out.write_band(1, burned)
 
-    with rasterio.open('./output/croptype_init.tif', 'w+', **meta) as out:
+    with rasterio.open('./output/init_crop_allocation.tif', 'w+', **meta) as out:
         out.nodata = 0
         out_arr = out.read(1)
         # this is where we create a generator of geom, value pairs to use in rasterizing

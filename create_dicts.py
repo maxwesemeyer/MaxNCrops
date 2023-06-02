@@ -55,7 +55,7 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     else:
         total_entropy, img_ha = get_entropy(crop_arr, agg_len=100, return_agr_area=True)
         total_entropy, img_ct = get_entropy(crop_arr, agg_len=100, return_count=True)
-        total_entropy, img_div = get_entropy(crop_arr, agg_len=100, return_img=True)
+        total_entropy, img_div = get_entropy(crop_arr, agg_len=100, return_ShannonDiv_2d=True)
 
         write_array_disk_universal(np.expand_dims(img_div, axis=0), './temp/reference_raster.tif',
                                    outPath='./output/initial_entropy',

@@ -11,7 +11,7 @@ agg_length = 100
 count_pixel_per_block = agg_length ** 2
 
 # Tolerance value in percent; Controls the allowed deviation per crop and farm
-tolerance = 10
+tolerance = 5
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
 rasterize = True
@@ -205,7 +205,7 @@ def run_optimization():
     opt_frame = pd.DataFrame({'field_id': fids_list, 'OPT_KTYP': crop_type_list})
     iacs_gp = iacs_gp.merge(opt_frame, on='field_id')
     iacs_gp.to_file('./output/iacs_opt.shp')
-    write_array_disk_universal(np.expand_dims(field_id_arr, axis=0), './temp/reference_raster.tif', outPath='./output/maxent_croptypes_' + str(tolerance),
+    write_array_disk_universal(np.expand_dims(field_id_arr, axis=0), './temp/reference_raster.tif', outPath='./output/opt_crop_allocation_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
     ####################################################################################################################
     analyse_solution(tolerance=tolerance)
