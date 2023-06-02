@@ -11,7 +11,7 @@ agg_length = 100
 count_pixel_per_block = agg_length ** 2
 
 # Tolerance value in percent; Controls the allowed deviation per crop and farm
-tolerance = 5
+tolerance = 10
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
 rasterize = True
@@ -56,7 +56,7 @@ def run_optimization():
     # the structure of farm_field_dict is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
     with open('./temp/farm_field_dict.pkl', 'rb') as f:
         farm_field_dict = pickle.load(f)
-    print(farm_field_dict)
+
     ####################################################################################################################
     # structure of block_dict
     # block id: [share of fieldid1 in this block, share of fieldid2 in this block,
@@ -91,7 +91,7 @@ def run_optimization():
     M = 1e5
 
     for i in range(num_blocks):
-        print(i, '/', num_blocks, 'adding if else constraints')
+        print(i+1, '/', num_blocks, 'adding if else constraints')
         tempvars = {}
 
         indices_block_i = block_dict[i].indices
@@ -122,16 +122,17 @@ def run_optimization():
     m.addConstr(vars[str(0)][0] == 1, 'nodata_fixed')
 
     for i, id in enumerate(unique_field_ids):
-        print(i, ' of ', len(unique_field_ids), 'multiple constraints')
+        print(i+1, ' of ', len(unique_field_ids), 'taboo constraints')
         if i == 0:
             print('skipping')
         else:
             # this constraint ensures that the nodata class cannot be applied to agricultural parcels
-            m.addConstr(vars[str(0)][i] == 0, 'nodata_fixed_2' + str(i))
+            m.addConstr(vars[str(0)][i] == 0, 'nodata_fixed_2_' + str(i))
             try:
                 taboo_crops = taboo_croptypes_dict[id]
                 for crop in unique_crops:
-                    if crop in taboo_crops and crop < 99:
+                    if crop in taboo_crops:
+                        # this constraint ensures that the field specific taboo crop cannot be applied to the field
                         m.addConstr(vars[str(crop)][i] == 0, 'taboo_crop_' + str(crop) + '_' + str(id))
             except:
                 None
@@ -144,7 +145,7 @@ def run_optimization():
     # This constraint is only enforced if diversity_type = 'attainable'
     if diversity_type == 'attainable':
         for ct, farm in enumerate(unique_farms):
-            print(ct, 'of', len(unique_farms), 'crop proportion per farm constraints')
+            print(ct+1, 'of', len(unique_farms), 'crop composition per farm constraints')
             if farm == 0 or farm == -999.0:
                 print('skipping farm', farm)
                 continue
@@ -185,10 +186,6 @@ def run_optimization():
     for crop in unique_crops:
         sol = m.getAttr("X", vars["{0}".format(str(crop))]).values()
         out_imgs.append(sol)
-    #all_vars = m.getVars()
-    #values = m.getAttr("X", all_vars)
-    #names = m.getAttr("VarName", all_vars)
-    #print(names)
 
     fids_list = []
     crop_type_list = []
