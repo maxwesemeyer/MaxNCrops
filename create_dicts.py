@@ -45,34 +45,6 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     len_raster = sqrt(size_of_test_data)
     num_block_y = int(len_raster / agg_length)
     num_blocks = int(num_block_y ** 2)
-
-    ##########################################################
-    # get the initial landscape shannon diversity, number of unique crops per landscape and the proportion of
-    # agricultural area per landscape and write to disk
-    if os.path.isfile('./output/initial_count.tif') and os.path.isfile('./output/initial_ShanDiv.tif') and \
-            os.path.isfile('./output/agricultural_area_ha.tif'):
-        if verbatim:
-            print('skipping entropy calc')
-
-    else:
-        total_entropy, img_ha = get_entropy(crop_arr, agg_len=100, return_agr_area=True)
-        total_entropy, img_ct = get_entropy(crop_arr, agg_len=100, return_count=True)
-        total_entropy, img_div = get_entropy(crop_arr, agg_len=100, return_ShannonDiv_2d=True)
-
-        write_array_disk_universal(np.expand_dims(img_div, axis=0), './temp/reference_raster.tif',
-                                   outPath='./output/initial_ShanDiv',
-                                   dtype=gdal.GDT_Int32, noDataValue=0, scaler=1000, adapt_pixel_size=True,
-                                   adapted_pixel_size=100)
-
-        write_array_disk_universal(np.expand_dims(img_ct, axis=0), './temp/reference_raster.tif',
-                                   outPath='./output/initial_count',
-                                   dtype=gdal.GDT_Int32, noDataValue=0, scaler=1, adapt_pixel_size=True,
-                                   adapted_pixel_size=100)
-
-        write_array_disk_universal(np.expand_dims(img_ha, axis=0), './temp/reference_raster.tif',
-                                   outPath='./output/agricultural_area_ha',
-                                   dtype=gdal.GDT_Int32, noDataValue=0, scaler=1, adapt_pixel_size=True,
-                                   adapted_pixel_size=100)
     #########################################################################
     if not os.path.isfile('./temp/shares_iacs.csv'):
         dissolved_shares_farm_crop = iacs_gp.copy().dissolve(by=[farm_id_column, crop_type_column])

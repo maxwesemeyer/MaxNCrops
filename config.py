@@ -1,3 +1,9 @@
+########################################################################################################################
+# by Maximilian Wesemeyer
+# for questions contact wesemema@hu-berlin.de
+########################################################################################################################
+
+
 # the agg_length controls the size of the landscape pixels; agg_length of 100 and 10m pixel equals a km²
 # Zero is the no data value for farms; farm_id == 0 will be ignored.
 agg_length = 100

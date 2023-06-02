@@ -41,37 +41,37 @@ def write_array_disk_universal(array, reference_raster, outPath, scaler=1, out_f
     array = array * scaler
     array[nd_mask] = noDataValue
     bands = array.shape[0]
-    mowSumRst = gdal.Open(reference_raster)
+    outraster = gdal.Open(reference_raster)
     drvMemR = gdal.GetDriverByName('MEM')
 
     RasterXSize = array.shape[2]
     RasterYSize = array.shape[1]
-    mowDoy_ds = drvMemR.Create('', RasterXSize, RasterYSize, bands, dtype)
+    outds = drvMemR.Create('', RasterXSize, RasterYSize, bands, dtype)
     if adapt_pixel_size:
-        reference_gt = mowSumRst.GetGeoTransform()
+        reference_gt = outraster.GetGeoTransform()
         new_gt = (
             reference_gt[0], float(adapted_pixel_size * reference_gt[1]), reference_gt[2], reference_gt[3],
             reference_gt[4],
             float(adapted_pixel_size * reference_gt[5]))
-        mowDoy_ds.SetGeoTransform(new_gt)
+        outds.SetGeoTransform(new_gt)
     else:
-        mowDoy_ds.SetGeoTransform(mowSumRst.GetGeoTransform())
-    mowDoy_ds.SetProjection(mowSumRst.GetProjection())
+        outds.SetGeoTransform(outraster.GetGeoTransform())
+    outds.SetProjection(outraster.GetProjection())
 
     for b in range(bands):
-        mowDoy_ds.GetRasterBand(b + 1).WriteArray(array[b, :, :])
-        mowDoy_ds.GetRasterBand(b + 1).SetNoDataValue(noDataValue)
+        outds.GetRasterBand(b + 1).WriteArray(array[b, :, :])
+        outds.GetRasterBand(b + 1).SetNoDataValue(noDataValue)
     if out_file_type == '.tif':
         driver = gdal.GetDriverByName("GTiff")
     elif out_file_type == '.asc':
         driver = gdal.GetDriverByName("AAIGrid")
-    copy_ds = driver.CreateCopy(outPath + out_file_type, mowDoy_ds, 0, ['COMPRESS=LZW'])
+    copy_ds = driver.CreateCopy(outPath + out_file_type, outds, 0, ['COMPRESS=LZW'])
     copy_ds = None
-    mowSumRst = None
+    outraster = None
 
 
-def get_entropy(map_2d, agg_len, return_ShannonDiv_2d=False, return_count=False, return_agr_area=False):
-
+def get_entropy(map_2d, agg_len, return_type=None):
+    # return_type = area, count, Shannon diversity
     side_length_y = map_2d.shape[0]
     side_length_x = map_2d.shape[1]
     side_length_block = agg_len
@@ -105,17 +105,17 @@ def get_entropy(map_2d, agg_len, return_ShannonDiv_2d=False, return_count=False,
             #entropy = -sum(np.array(counts) * np.log(counts))
             entropy_list.append(entropy)
             # -sum( p*log(p) )
-    if return_agr_area:
+    if return_type == 'area':
         img_2d = np.reshape(area_list, (int(side_length_y / agg_len), int(side_length_x / agg_len)))
         return area_list, img_2d
-    elif return_count:
+    if return_type == 'count':
         img_2d = np.reshape(n_unique_list, (int(side_length_y / agg_len), int(side_length_x / agg_len)))
         return n_unique_list, img_2d
-    elif return_ShannonDiv_2d:
+    if return_type == 'Shannon diversity':
         img_2d = np.reshape(entropy_list, (int(side_length_y / agg_len), int(side_length_x / agg_len)))
         return sum(entropy_list), img_2d
-    # Returns shannon diversity as well but not as 2d np array
-    else:
+    if return_type == '':
+        # Returns shannon diversity as well but not as 2d np array
         return entropy_list
 
 

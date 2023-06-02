@@ -24,18 +24,19 @@ def analyse_solution_seq(tolerance=1):
     print(opt.shape)
     for year in range(n_years):
 
-        a, img_init = get_entropy(init[year, :, :], 100, return_count=True)
-        a, img_opt = get_entropy(opt[year, :, :], 100, return_count=True)
         # TODO calculate init for each year; set 99 and 255 to the same class (0?) to use similar classes to opt
-        a, img_entr_init = get_entropy(init[year, :, :], 100, return_ShannonDiv_2d=True)
-        a, img_entr_opt = get_entropy(opt[year, :, :], 100, return_ShannonDiv_2d=True)
+        a, img_init_ct = get_entropy(init, 100, return_type='count')
+        a, img_opt_ct = get_entropy(opt, 100, return_type='count')
 
-        img_ct_init_list.append(img_init)
-        img_ct_opt_list.append(img_opt)
+        a, img_entr_init = get_entropy(init, 100, return_type='Shannon diversity')
+        a, img_entr_opt = get_entropy(opt, 100, return_type='Shannon diversity')
+
+        img_ct_init_list.append(img_init_ct)
+        img_ct_opt_list.append(img_opt_ct)
         img_entr_init_list.append(img_entr_init)
         img_entr_opt_list.append(img_entr_opt)
 
-        a, agr_area = get_entropy(opt[year, :], 100, return_agr_area=True)
+        a, agr_area = get_entropy(opt, 100, return_type='area')
         agr_area_list.append(agr_area)
 
     img_init = np.stack(img_ct_init_list, axis=0)
@@ -102,20 +103,20 @@ def analyse_solution(tolerance=1):
     init = gdal.Open('./temp/IDKTYP.tif').ReadAsArray()
     opt = gdal.Open('./output/opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
 
-    a, img_init = get_entropy(init, 100, return_count=True)
-    a, img_opt = get_entropy(opt, 100, return_count=True)
+    a, img_init_ct = get_entropy(init, 100, return_type='count')
+    a, img_opt_ct = get_entropy(opt, 100, return_type='count')
 
-    a, img_entr_init = get_entropy(init, 100, return_ShannonDiv_2d=True)
-    a, img_entr_opt = get_entropy(opt, 100, return_ShannonDiv_2d=True)
+    a, img_entr_init = get_entropy(init, 100, return_type='Shannon diversity')
+    a, img_entr_opt = get_entropy(opt, 100, return_type='Shannon diversity')
 
-    a, agr_area = get_entropy(opt, 100, return_agr_area=True)
+    a, agr_area = get_entropy(opt, 100, return_type='area')
 
-    write_array_disk_universal(np.expand_dims(img_init, axis=0), './temp/reference_raster.tif',
+    write_array_disk_universal(np.expand_dims(img_init_ct, axis=0), './temp/reference_raster.tif',
                                outPath='./output/inital_ct',
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
                                adapted_pixel_size=100)
 
-    write_array_disk_universal(np.expand_dims(img_opt, axis=0),
+    write_array_disk_universal(np.expand_dims(img_opt_ct, axis=0),
                                './temp/reference_raster.tif',
                                outPath='./output/opt_ct_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
@@ -133,8 +134,8 @@ def analyse_solution(tolerance=1):
                                dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
                                adapted_pixel_size=100)
     pd.DataFrame(
-        {'entropy_init': img_entr_init.ravel(), 'entropy_opt': img_entr_opt.ravel(), 'initial_ct': img_init.ravel(),
-         'opt_ct': img_opt.ravel(), 'agr_area': agr_area.ravel()}).to_csv('./output/entropy_ct_rav' + str(tolerance) + '.csv')
+        {'entropy_init': img_entr_init.ravel(), 'entropy_opt': img_entr_opt.ravel(), 'initial_ct': img_init_ct.ravel(),
+         'opt_ct': img_opt_ct.ravel(), 'agr_area': agr_area.ravel()}).to_csv('./output/entropy_ct_rav' + str(tolerance) + '.csv')
 
     ##########################################################
     # get shares of inital crop shares and save them to a csv file
