@@ -33,13 +33,16 @@ Recreate from environment.yml file
 conda env create -f environment.yml
 ```
 ## Run optimization
-In order to run the optimization just run the main_optimize.py file, in there you will also find some adjustable parameters. These are: 
+In order to run the optimization just run the main_optimize.py file. Adjustable parameters can be found in the config file. These are: 
+
 + ***agg_length***, controls the size of the landscape pixels; *agg_length* of 100 and 10m pixels equals a km² 
 + ***tolerance***, controls the crop composition tolerance per farm and crop type
 + ***crop_type_column***, in case you use your own data state the name of the crop type column here
 + ***farm_id_column***, in case you use your own data state the name of the farm identifier column here
 + ***diversity_type***, set to attainable to enforce the crop composition constraints or to potential to not enforce 
-
++ ***verbatim***, set this to True to print information about the data preprocessing;
++ ***nd_value***, the no data value for the project can be set here
++
 ## Output
 A variety of output is generated and saved in the output folder. 
 The most important are: 
