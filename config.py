@@ -21,7 +21,7 @@ diversity_type = 'attainable'
 # The Irreducible Inconsistent Subsystem (iis) helps to understand why a model is infeasible
 m_infeas = False
 
-# set this to True to print Information about the data preprocessing;
+# set this to True to print information about the data preprocessing;
 verbatim = False
 
 # No data value
