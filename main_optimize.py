@@ -1,5 +1,5 @@
-from create_dicts_script import *
-from rasterize_script import *
+from create_dicts import *
+from rasterize import *
 from analyse_solution import *
 
 ########################################################################################################################

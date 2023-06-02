@@ -1,5 +1,5 @@
-from create_dicts_script import *
-from rasterize_script import *
+from create_dicts import *
+from rasterize import *
 from analyse_solution import *
 
 
@@ -12,7 +12,7 @@ agg_length = 100
 count_pixel_per_block = agg_length ** 2
 
 # Tolerance value in percent; Controls the allowed deviation per crop and farm
-tolerance = 1
+tolerance = 5
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
 rasterize = True

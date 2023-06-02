@@ -73,7 +73,7 @@ def get_entropy(map_2d, agg_len, return_img=False, return_count=False, return_ag
     side_length_y = map_2d.shape[0]
     side_length_x = map_2d.shape[1]
     side_length_block = agg_len
-    total_n_pixel_block = agg_len ** 2
+    #total_n_pixel_block = agg_len ** 2
     entropy_list = []
     n_unique_list = []
     area_list = []
@@ -109,7 +109,7 @@ def get_entropy(map_2d, agg_len, return_img=False, return_count=False, return_ag
     if return_count:
         img_2d = np.reshape(n_unique_list, (int(side_length_y / agg_len), int(side_length_x / agg_len)))
         return n_unique_list, img_2d
-
+    # Todo bad variable name; should be return shannon_diversity
     if return_img:
         img_2d = np.reshape(entropy_list, (int(side_length_y / agg_len), int(side_length_x / agg_len)))
         return sum(entropy_list), img_2d

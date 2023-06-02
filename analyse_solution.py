@@ -1,6 +1,7 @@
 from __functions import *
 import matplotlib.pyplot as plt
 
+
 def analyse_solution_seq(tolerance=1):
     init = gdal.Open('./temp/IDKTYP.tif').ReadAsArray()
     # TODO init should be the historic crop types; Should be written to file earlier
