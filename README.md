@@ -46,6 +46,6 @@ The most important are:
 
 + ***init_crop_allocation.tif***, a raster with the initial crop allocation
 + ***opt_crop_allocation.tif***, a raster with the optimized crop allocation
-+ ***initial_entropy.tif***, a raster with the initial landscape-scale Shannon crop diversity 
-+ ***opt_entropy.tif***, a raster with the optimized landscape-scale Shannon crop diversity 
++ ***initial_ShanDiv.tif***, a raster with the initial landscape-scale Shannon crop diversity 
++ ***opt_ShanDiv_.tif***, a raster with the optimized landscape-scale Shannon crop diversity 
 + ***iacs_opt.shp***, a shapefile with a cloumn OPT_KTYP that contains the optimized crop type allocation
