@@ -20,11 +20,8 @@ def run_optimization():
         print('rasterizing...')
         rasterize_input_shp(crop_type_column=crop_type_column, farm_id_column=farm_id_column)
 
-    crop_arr, field_id_arr, farmid_arr, sparse_idx, \
-    unique_crops, unique_field_ids, iacs_gp, unique_farms, field_id_arr_1d, \
-    size_of_test_data, len_raster, num_blocks, num_block_y, start_vals = prepare_data(agg_length=agg_length,
-                                                                                      crop_type_column=crop_type_column,
-                                                                                      farm_id_column=farm_id_column)
+    field_id_arr, farmid_arr, sparse_idx, unique_crops, unique_field_ids, iacs_gp, unique_farms, num_blocks, \
+    start_vals = prepare_data(agg_length=agg_length, crop_type_column=crop_type_column, farm_id_column=farm_id_column)
 
     if verbatim:
         print(len(unique_field_ids), 'number of decision units')

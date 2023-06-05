@@ -39,12 +39,11 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
 
     field_id_arr_1d = field_id_arr.flatten()
     field_id_arr_1d[np.where(field_id_arr_1d == nd_value)] = 0
-
     size_of_test_data = field_id_arr_1d.shape[0]
-
     len_raster = sqrt(size_of_test_data)
     num_block_y = int(len_raster / agg_length)
     num_blocks = int(num_block_y ** 2)
+
     #########################################################################
     if not os.path.isfile('./temp/shares_iacs.csv'):
         dissolved_shares_farm_crop = iacs_gp.copy().dissolve(by=[farm_id_column, crop_type_column])
@@ -130,11 +129,11 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
 
         dissolved_shares_farm_crop.to_csv('./temp/shares_iacs_seq.csv')
     ####################################################################################################################
-    # creates a dictionary which states which indices of a one-dimensional array belong to a certain block
+    # creates a dictionary which states which indices of a one-dimensional array belong to a certain block (landscape)
+    count_pixel_per_block = agg_length ** 2
     if not os.path.isfile('./temp/spatial_aggregation_dict.pkl'):
         if verbatim:
             print(num_blocks)
-        count_pixel_per_block = agg_length ** 2
         agg_dicts = []
         block_counter = 0
         for row in range(num_block_y):
@@ -198,8 +197,6 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
         with open('./temp/farm_field_dict.pkl', 'wb') as f:
             pickle.dump(farm_field_dict, f)
 
-        with open('./temp/farm_field_dict.pkl', 'rb') as f:
-            farm_field_dict = pickle.load(f)
         # the shape is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
         #
 
@@ -231,9 +228,5 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
         with open('./temp/block_dict.pkl', 'wb') as f:
             pickle.dump(block_dict, f)
 
-        with open('./temp/block_dict.pkl', 'rb') as f:
-            block_dict = pickle.load(f)
-
-    return crop_arr, field_id_arr, farmid_arr, sparse_idx, \
-           unique_crops, unique_field_ids, iacs_gp, unique_farms, field_id_arr_1d, size_of_test_data, len_raster, \
-           num_blocks, num_block_y, start_vals
+    return field_id_arr, farmid_arr, sparse_idx, unique_crops, unique_field_ids, iacs_gp, unique_farms, num_blocks, \
+           start_vals

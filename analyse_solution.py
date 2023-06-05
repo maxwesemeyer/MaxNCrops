@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 
 
 def analyse_solution_seq(tolerance=1):
-    init = gdal.Open('./temp/IDKTYP.tif').ReadAsArray()
     # TODO init should be the historic crop types; Should be written to file earlier
     init = gdal.Open('./temp/hist_croptypes_adapted.tif').ReadAsArray()
     init[np.where((init == 255) | (init == 99), True, False)] = 0
@@ -12,7 +11,6 @@ def analyse_solution_seq(tolerance=1):
     init[~mask] = 0
 
     print('UNIQUE INIT: ', np.unique(init), 'UNIQUE OPT: ', np.unique(opt))
-    farm_id = gdal.Open('./temp/Farm_ID.tif').ReadAsArray()
 
     n_years = opt.shape[0]
     img_entr_init_list = []
@@ -21,22 +19,22 @@ def analyse_solution_seq(tolerance=1):
     img_ct_init_list = []
     img_ct_opt_list = []
     agr_area_list = []
-    print(opt.shape)
+
     for year in range(n_years):
 
-        # TODO calculate init for each year; set 99 and 255 to the same class (0?) to use similar classes to opt
-        a, img_init_ct = get_entropy(init, 100, return_type='count')
-        a, img_opt_ct = get_entropy(opt, 100, return_type='count')
-
-        a, img_entr_init = get_entropy(init, 100, return_type='Shannon diversity')
-        a, img_entr_opt = get_entropy(opt, 100, return_type='Shannon diversity')
+        a, img_init_ct = get_entropy(init[year, :, :], 100, return_type='count')
+        a, img_opt_ct = get_entropy(opt[year, :, :], 100, return_type='count')
 
         img_ct_init_list.append(img_init_ct)
         img_ct_opt_list.append(img_opt_ct)
+
+        a, img_entr_init = get_entropy(init[year, :, :], 100, return_type='Shannon diversity')
+        a, img_entr_opt = get_entropy(opt[year, :, :], 100, return_type='Shannon diversity')
+
         img_entr_init_list.append(img_entr_init)
         img_entr_opt_list.append(img_entr_opt)
 
-        a, agr_area = get_entropy(opt, 100, return_type='area')
+        a, agr_area = get_entropy(opt[year, :, :], 100, return_type='area')
         agr_area_list.append(agr_area)
 
     img_init = np.stack(img_ct_init_list, axis=0)
@@ -67,24 +65,11 @@ def analyse_solution_seq(tolerance=1):
                                    outPath='./output/opt_entropy_' + str(tolerance),
                                    dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
                                    adapted_pixel_size=100)
-
     pd.DataFrame(
         {'entropy_init': img_entr_init.ravel(), 'entropy_opt': img_entr_opt.ravel(), 'initial_ct': img_init.ravel(),
          'opt_ct': img_opt.ravel(), 'agr_area': agr_area_repeated.ravel()}).to_csv(
         './output/entropy_ct_rav' + str(tolerance) + '.csv')
 
-    ##########################################################
-    # get shares of inital crop shares and save them to a csv file
-    """
-    for year in range(n_years):
-        shares = get_shares_farm(farm_id.astype(int), init.astype(int)[year, :, :])
-        out_dict = {'farm_id': shares[0], 'ID_KTYP': shares[1], 'area_m2': shares[2]}
-        pd.DataFrame(out_dict).to_csv('./output/shares_init.csv')
-    
-        shares = get_shares_farm(farm_id.astype(int).flatten(), opt.astype(int)[year, :, :].flatten())
-        out_dict = {'farm_id': shares[0], 'ID_KTYP': shares[1], 'area_m2': shares[2]}
-        pd.DataFrame(out_dict).to_csv('./output/shares_opt_' + str(tolerance) + '.csv')
-    """
     img_nan_init = img_entr_init.astype(float)
     img_nan_init[np.where(img_nan_init == nd_value, True, False)] = np.nan
 

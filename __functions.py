@@ -16,6 +16,7 @@ import os.path
 import rasterio
 from rasterio import features
 from rasterio.transform import from_origin
+from itertools import chain
 from config import *
 
 

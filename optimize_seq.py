@@ -3,12 +3,17 @@ from rasterize import *
 from analyse_solution import *
 from config import *
 
+
 ########################################################################################################################
 # by Maximilian Wesemeyer
+# for questions contact wesemema@hu-berlin.de
+########################################################################################################################
+# THIS IS NOT WORKING RELIABLY YET (especially for new datasets)
+# some crop types are hard coded
 ########################################################################################################################
 
 
-def run_optimization():
+def run_optimization_seq():
     if not os.path.exists("temp"):
         # Create the temp directory if it does not exist
         os.makedirs("temp")
@@ -19,18 +24,28 @@ def run_optimization():
         print('rasterizing...')
         rasterize_input_shp(crop_type_column=crop_type_column, farm_id_column=farm_id_column)
 
-    crop_arr, field_id_arr, farmid_arr, sparse_idx, \
-    unique_crops, unique_field_ids, iacs_gp, unique_farms, field_id_arr_1d, \
-    size_of_test_data, len_raster, num_blocks, num_block_y, start_vals = prepare_data(agg_length=agg_length,
-                                                                                      crop_type_column=crop_type_column,
-                                                                                      farm_id_column=farm_id_column)
+    field_id_arr, farmid_arr, sparse_idx, unique_crops, unique_field_ids, iacs_gp, unique_farms, num_blocks, \
+    start_vals = prepare_data(agg_length=agg_length, crop_type_column=crop_type_column, farm_id_column=farm_id_column)
 
-    print(len(unique_field_ids), 'number of decision units')
+    if verbatim:
+        print(len(unique_field_ids), 'number of decision units')
     ####################################################################################################################
     shares_croptypes = pd.read_csv('./temp/shares_iacs_seq.csv')
 
     with open('./temp/historic_croptypes_dict.pkl', 'rb') as f:
         historic_croptypes_dict = pickle.load(f)
+
+    ####################################################################################################################
+    # A bit of a messy workaround if not all crop types are cultivated in a given year; This is the case
+    # especially for very small study areas
+    all_crops = []
+    for i, id in enumerate(unique_field_ids):
+        all_crops.append(list(np.unique(np.array(historic_croptypes_dict[id]))))
+    unique_crops = np.unique(list(chain.from_iterable(all_crops)))
+    unique_crops = np.setdiff1d(unique_crops, [255, 99])
+    unique_crops = np.insert(unique_crops, 0, 0)
+    ####################################################################################################################
+
     n_years = len(historic_croptypes_dict[1])
 
     # the structure of farm_field_dict is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
@@ -48,15 +63,12 @@ def run_optimization():
     m = gp.Model("Maximum Landscape Entropy")
 
     vars = {}
-    print(len(unique_crops), 'unique crops check all crop types', unique_crops)
+    if verbatim:
+        print(len(unique_crops), 'unique crops check all crop types', unique_crops)
+
     for i, crop in enumerate(unique_crops):
         crop = str(crop)
-        #vars["{0}".format(crop)] = m.addVars(len(unique_field_ids), vtype=GRB.BINARY, name=crop)
         vars["{0}".format(crop)] = m.addMVar((len(unique_field_ids), n_years), vtype=GRB.BINARY, name=crop)
-
-        #if crop != str(0):
-        #    print('setting start', crop)
-        #    vars["{0}".format(crop)].Start = start_vals[i-1]
 
     # The helper will be used as variable that is 1 if a crop type exists in a landscape and else is 0
     for crop in unique_crops:
@@ -72,7 +84,8 @@ def run_optimization():
     M = 1e5
 
     for i in range(num_blocks):
-        print(i, '/', num_blocks, 'adding if else constraints')
+        if verbatim:
+            print(i, '/', num_blocks, 'adding if else constraints')
         tempvars = {}
 
         indices_block_i = block_dict[i].indices
@@ -103,12 +116,13 @@ def run_optimization():
     del block_dict
 
     # this constraint ensures that the no data variable is 1 where it was no data before
-    #m.addConstr((vars[str(0)][0, year] == 1 for year in range(n_years)), 'nodata_fixed')
     m.addConstr(vars[str(0)][0, :].sum() == n_years, 'nodata_fixed')
     for i, id in enumerate(unique_field_ids):
-        print(i, ' of ', len(unique_field_ids), 'multiple constraints')
+        if verbatim:
+            print(i, ' of ', len(unique_field_ids), 'multiple constraints')
         if i == 0:
-            print('skipping')
+            if verbatim:
+                print('skipping')
         else:
             try:
                 historic_crops = np.array(historic_croptypes_dict[id])
@@ -139,9 +153,11 @@ def run_optimization():
     # This constraint is only enforced if diversity_type = 'attainable'
     if diversity_type == 'attainable':
         for ct, farm in enumerate(unique_farms):
-            print(ct, 'of', len(unique_farms), 'crop proportion per farm constraints')
+            if verbatim:
+                print(ct, 'of', len(unique_farms), 'crop proportion per farm constraints')
             if farm == 0 or farm == nd_value:
-                print('skipping farm', farm)
+                if verbatim:
+                    print('skipping farm', farm)
                 continue
             indices_farm_i = farm_field_dict[farm].indices
             for year in range(n_years):
@@ -226,7 +242,6 @@ def run_optimization():
 
         diss_init = iacs_gp.dissolve(by=[farm_id_column, 'crp_yr_' + str(year)], as_index=False).copy()
         diss_init['area_init'] = diss_init.area * 0.0001
-        print(diss_init)
         diss_opt = iacs_gp.dissolve(by=[farm_id_column, 'OPT_KTYP_' + str(year)], as_index=False).copy()
         diss_opt['area_opt'] = diss_opt.area * 0.0001
         merged = pd.merge(diss_init, diss_opt, left_on=['farm_id', 'crp_yr_' + str(year)], right_on=['farm_id', 'OPT_KTYP_' + str(year)])
@@ -238,12 +253,11 @@ def run_optimization():
                 # print(row['area_opt'], row['area_init'])
                 if (row['area_opt'] > row['area_init'] + row['area_init'] * (tolerance/100)) or (
                         row['area_opt'] < row['area_init'] - row['area_init'] * (tolerance/100)):
-                    #print(error)
                     error += 1
             print('errors: ', error)
 
 
 if __name__ == '__main__':
-    run_optimization()
+    run_optimization_seq()
 
 
