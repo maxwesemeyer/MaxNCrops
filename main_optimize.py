@@ -205,7 +205,7 @@ def run_optimization():
 
     diss_opt = iacs_gp.dissolve(by=[farm_id_column, 'OPT_KTYP'], as_index=False).copy()
     diss_opt['area_opt'] = diss_opt.area * 0.0001
-    merged = pd.merge(diss_init, diss_opt, left_on=['farm_id', 'ID_KTYP'], right_on=['farm_id', 'OPT_KTYP'])
+    merged = pd.merge(diss_init, diss_opt, left_on=[farm_id_column, 'ID_KTYP'], right_on=[farm_id_column, 'OPT_KTYP'])
 
     if diversity_type == 'attainable':
         # Check if farm crop acreage constraint was violated; There should be zero violations;
