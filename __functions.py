@@ -140,8 +140,9 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
     historic_croptypes_array = np.reshape(historic_croptypes_array, newshape=(historic_croptypes_array.shape[0], historic_croptypes_array.shape[1]*historic_croptypes_array.shape[2]))
 
     # Aggregate crop types to coarser classes
-    #historic_croptypes_array[np.where((historic_croptypes_array==9) | (historic_croptypes_array==10) | (historic_croptypes_array==7) )] = 2
-    #historic_croptypes_array[np.where((historic_croptypes_array==14))] = 12
+    # TODO hard coded crop classes; only needed when working with ID_KTYP_2
+    historic_croptypes_array[np.where((historic_croptypes_array==9) | (historic_croptypes_array==10) | (historic_croptypes_array==7) )] = 2
+    historic_croptypes_array[np.where((historic_croptypes_array==14))] = 12
 
     field_id_array_rav = field_id_array.ravel()
 

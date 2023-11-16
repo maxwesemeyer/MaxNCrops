@@ -3,16 +3,28 @@ import matplotlib.pyplot as plt
 
 
 def analyse_solution_seq(tolerance=1):
-    # TODO init should be the historic crop types; Should be written to file earlier
-    init = gdal.Open('./temp/hist_croptypes_adapted.tif').ReadAsArray()
-    init[np.where((init == 255) | (init == 99), True, False)] = 0
-    opt = gdal.Open('./output/maxent_croptypes_' + str(tolerance) + '.tif').ReadAsArray()
+    rst = rasterio.open('' + temp_path + '/' + 'reference_raster.tif')
+    opt = gdal.Open('./' + out_path + '/' + 'maxent_croptypes_' + str(tolerance) + '.tif').ReadAsArray()
     mask = np.where(opt > 0, True, False)
-    init[~mask] = 0
-
-    print('UNIQUE INIT: ', np.unique(init), 'UNIQUE OPT: ', np.unique(opt))
-
     n_years = opt.shape[0]
+    #####################################################
+    meta = rst.meta.copy()
+    meta.update(compress='lzw')
+    meta.update(count=n_years)
+    iacs = gpd.read_file('./' + out_path + '/iacs_opt.shp')
+    with rasterio.open('./' + out_path + '/init_crop_allocation.tif', 'w+', **meta) as out:
+        for year in range(n_years):
+            out.nodata = 0
+            out_arr = out.read(year+1)
+            # this is where we create a generator of geom, value pairs to use in rasterizing
+            shapes = ((geom, value) for geom, value in zip(iacs.geometry, iacs['crp_yr_' + str(year)]))
+            burned = features.rasterize(shapes=shapes, fill=0, out=out_arr, transform=out.transform)
+            out.write_band(year+1, burned)
+    init = gdal.Open('./' + out_path + '/' + 'init_crop_allocation.tif').ReadAsArray()
+    init[np.where((init == 255) | (init == 99), True, False)] = 0
+    init[~mask] = 0
+    print('UNIQUE INIT: ', np.unique(init), 'UNIQUE OPT: ', np.unique(opt))
+    #####################################################
     img_entr_init_list = []
     img_entr_opt_list = []
 
@@ -43,32 +55,32 @@ def analyse_solution_seq(tolerance=1):
     img_entr_opt = np.stack(img_entr_opt_list, axis=0)
     agr_area_repeated = np.stack(agr_area_list, axis=0)
 
-    write_array_disk_universal(img_init, './temp/reference_raster.tif',
-                               outPath='./output/inital_ct',
+    write_array_disk_universal(img_init, './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + out_path + '/' + 'inital_ct',
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
                                adapted_pixel_size=100)
 
     write_array_disk_universal(img_opt,
-                               './temp/reference_raster.tif',
-                               outPath='./output/opt_ct_' + str(tolerance),
+                               './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + out_path + '/' + 'opt_ct_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
                                adapted_pixel_size=100)
 
     write_array_disk_universal(img_entr_init,
-                               './temp/reference_raster.tif',
-                               outPath='./output/initial_entropy',
+                               './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + out_path + '/' + 'initial_entropy',
                                dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
                                adapted_pixel_size=100)
 
     write_array_disk_universal(img_entr_opt,
-                                   './temp/reference_raster.tif',
-                                   outPath='./output/opt_entropy_' + str(tolerance),
+                                   './' + temp_path + '/' + 'reference_raster.tif',
+                                   outPath='./' + out_path + '/' + 'opt_entropy_' + str(tolerance),
                                    dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
                                    adapted_pixel_size=100)
     pd.DataFrame(
         {'entropy_init': img_entr_init.ravel(), 'entropy_opt': img_entr_opt.ravel(), 'initial_ct': img_init.ravel(),
          'opt_ct': img_opt.ravel(), 'agr_area': agr_area_repeated.ravel()}).to_csv(
-        './output/entropy_ct_rav' + str(tolerance) + '.csv')
+        './' + out_path + '/' + 'entropy_ct_rav' + str(tolerance) + '.csv')
 
     img_nan_init = img_entr_init.astype(float)
     img_nan_init[np.where(img_nan_init == nd_value, True, False)] = np.nan
@@ -85,42 +97,42 @@ def analyse_solution_seq(tolerance=1):
 
 
 def analyse_solution(tolerance=1):
-    init = gdal.Open('./temp/IDKTYP.tif').ReadAsArray()
-    opt = gdal.Open('./output/opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
+    init = gdal.Open('./' + temp_path + '/' + 'IDKTYP.tif').ReadAsArray()
+    opt = gdal.Open('./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
 
-    a, img_init_ct = get_entropy(init, 100, return_type='count')
-    a, img_opt_ct = get_entropy(opt, 100, return_type='count')
+    a, img_init_ct = get_entropy(init, agg_length, return_type='count')
+    a, img_opt_ct = get_entropy(opt, agg_length, return_type='count')
 
-    a, img_entr_init = get_entropy(init, 100, return_type='Shannon diversity')
-    a, img_entr_opt = get_entropy(opt, 100, return_type='Shannon diversity')
+    a, img_entr_init = get_entropy(init, agg_length, return_type='Shannon diversity')
+    a, img_entr_opt = get_entropy(opt, agg_length, return_type='Shannon diversity')
 
-    a, agr_area = get_entropy(opt, 100, return_type='area')
+    a, agr_area = get_entropy(opt, agg_length, return_type='area')
 
-    write_array_disk_universal(np.expand_dims(img_init_ct, axis=0), './temp/reference_raster.tif',
-                               outPath='./output/inital_ct',
+    write_array_disk_universal(np.expand_dims(img_init_ct, axis=0), './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + out_path + '/' + 'inital_ct',
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
-                               adapted_pixel_size=100)
+                               adapted_pixel_size=agg_length)
 
     write_array_disk_universal(np.expand_dims(img_opt_ct, axis=0),
-                               './temp/reference_raster.tif',
-                               outPath='./output/opt_ct_' + str(tolerance),
+                               './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + out_path + '/' + 'opt_ct_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
-                               adapted_pixel_size=100)
+                               adapted_pixel_size=agg_length)
 
     write_array_disk_universal(np.expand_dims(img_entr_init, axis=0),
-                               './temp/reference_raster.tif',
-                               outPath='./output/initial_ShanDiv',
+                               './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + out_path + '/' + 'initial_ShanDiv',
                                dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
-                               adapted_pixel_size=100)
+                               adapted_pixel_size=agg_length)
 
     write_array_disk_universal(np.expand_dims(img_entr_opt, axis=0),
-                               './temp/reference_raster.tif',
-                               outPath='./output/opt_ShanDiv_' + str(tolerance),
+                               './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + out_path + '/' + 'opt_ShanDiv_' + str(tolerance),
                                dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
-                               adapted_pixel_size=100)
+                               adapted_pixel_size=agg_length)
     pd.DataFrame(
         {'entropy_init': img_entr_init.ravel(), 'entropy_opt': img_entr_opt.ravel(), 'initial_ct': img_init_ct.ravel(),
-         'opt_ct': img_opt_ct.ravel(), 'agr_area': agr_area.ravel()}).to_csv('./output/entropy_ct_rav' + str(tolerance) + '.csv')
+         'opt_ct': img_opt_ct.ravel(), 'agr_area': agr_area.ravel()}).to_csv('./' + out_path + '/' + 'entropy_ct_rav' + str(tolerance) + '.csv')
 
     ##########################################################
     # get shares of inital crop shares and save them to a csv file
@@ -135,3 +147,26 @@ def analyse_solution(tolerance=1):
           'difference absolute: ', np.nanmean(img_nan_opt.flatten())-np.nanmean(img_nan_init.flatten()),
           'difference in percent:',
           ((np.nanmean(img_nan_opt.flatten())-np.nanmean(img_nan_init.flatten()))/np.nanmean(img_nan_init.flatten()))*100)
+
+
+def get_change_map():
+    iacs_gp = gpd.read_file('./' + out_path + '/' + 'iacs_opt.shp')
+    print(iacs_gp.columns)
+    iacs_gp['crp_chngd'] = iacs_gp['OPT_KTYP'] != iacs_gp[crop_type_column]
+    number_of_fields = len(iacs_gp.index)
+    number_of_changes = iacs_gp['crp_chngd'].sum()
+    print('number of changes in crop rotation', iacs_gp['crp_chngd'].sum(), 'total fields:', number_of_fields)
+    print((number_of_changes/number_of_fields)*100, '% of fields changes')
+    iacs_gp.to_file('./' + out_path + '/' + 'iacs_opt.shp')
+
+
+def get_change_map_seq(n_years):
+    for year in range(n_years):
+        iacs_gp = gpd.read_file('./' + out_path + '/' + 'iacs_opt.shp')
+        print(iacs_gp.columns)
+        iacs_gp['crp_chngd_' + str(year)] = iacs_gp['OPT_KTYP_' + str(year)] != iacs_gp['crp_yr_' + str(year)]
+        number_of_fields = len(iacs_gp.index)
+        number_of_changes = iacs_gp['crp_chngd_' + str(year)].sum()
+        print('number of changes in crop rotation', iacs_gp['crp_chngd_' + str(year)].sum(), 'total fields:', number_of_fields)
+        print((number_of_changes/number_of_fields)*100, '% of fields changes')
+        iacs_gp.to_file('./' + out_path + '/' + 'iacs_opt.shp')

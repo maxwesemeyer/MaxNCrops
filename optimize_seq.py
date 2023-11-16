@@ -14,12 +14,12 @@ from config import *
 
 
 def run_optimization_seq():
-    if not os.path.exists("temp"):
+    if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
-        os.makedirs("temp")
-    if not os.path.exists("output"):
+        os.makedirs(temp_path)
+    if not os.path.exists(out_path):
         # Create the output directory if it does not exist
-        os.makedirs("output")
+        os.makedirs(out_path)
     if rasterize:
         print('rasterizing...')
         rasterize_input_shp(crop_type_column=crop_type_column, farm_id_column=farm_id_column)
@@ -30,9 +30,9 @@ def run_optimization_seq():
     if verbatim:
         print(len(unique_field_ids), 'number of decision units')
     ####################################################################################################################
-    shares_croptypes = pd.read_csv('./temp/shares_iacs_seq.csv')
+    shares_croptypes = pd.read_csv('./' + temp_path + '/shares_iacs_seq.csv')
 
-    with open('./temp/historic_croptypes_dict.pkl', 'rb') as f:
+    with open('./' + temp_path + '/historic_croptypes_dict.pkl', 'rb') as f:
         historic_croptypes_dict = pickle.load(f)
 
     ####################################################################################################################
@@ -49,14 +49,14 @@ def run_optimization_seq():
     n_years = len(historic_croptypes_dict[1])
 
     # the structure of farm_field_dict is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
-    with open('./temp/farm_field_dict.pkl', 'rb') as f:
+    with open('./' + temp_path + '/farm_field_dict.pkl', 'rb') as f:
         farm_field_dict = pickle.load(f)
     ####################################################################################################################
     # structure of block_dict
     # block id: [share of fieldid1 in this block, share of fieldid2 in this block,
     # share of fieldid3 in this block, (=number of decision units)...]
 
-    with open('./temp/block_dict.pkl', 'rb') as f:
+    with open('./' + temp_path + '/block_dict.pkl', 'rb') as f:
         block_dict = pickle.load(f)
     ####################################################################################################################
     # Create the Gurobi model
@@ -110,7 +110,7 @@ def run_optimization_seq():
 
     m.addConstrs((sum(sum([vars[str(crop)][i, year] for crop in unique_crops]) for year in range(n_years)) == n_years for i in range(len(unique_field_ids))),
                  name='Only_one_per_year')
-    # This constraint ensures that each field has only one crop assigned
+    # This constraint ensures that each field has only one crop per year assigned
     m.addConstrs((gp.quicksum([vars[str(crop)][i, year] for crop in unique_crops]) == 1 for i in range(len(unique_field_ids)) for year in range(n_years)),
                  name='Only_one_LU')
     del block_dict
@@ -138,7 +138,7 @@ def run_optimization_seq():
                         m.addConstr(sum(vars[str(crop)][i, :] * crop_na_position) == vars[str(crop)][i, :].sum(),
                                     name='fix_na_position_2_' + str(crop) + '_' + str(id))
                     else:
-                        # we set the number of occurences per crop in the sequence of a each field
+                        # we set the number of occurences per crop in the sequence of each field
                         sum_crop = np.where(historic_crops == crop, True, False).sum()
                         #print(historic_crops, crop, 'sumCrop:', sum_crop, 'i:', i)
                         m.addConstr(vars[str(crop)][i, :].sum() == sum_crop, name='taboo_crop_' + str(crop) + '_' + str(id))
@@ -149,7 +149,7 @@ def run_optimization_seq():
 
     ####################################################################################################################
     # A constraint for each crop type and each farm using the block_dict_farms
-    # This constraint ensures that the acreage per crop and farm remains similar with a tolerance, which is stated above
+    # This constraint ensures that the acreage per crop and farm and year remains similar with a tolerance, which is stated above
     # This constraint is only enforced if diversity_type = 'attainable'
     if diversity_type == 'attainable':
         for ct, farm in enumerate(unique_farms):
@@ -185,18 +185,65 @@ def run_optimization_seq():
                                         tolerance / 100),
                                 name='acreage_' + str(crop) + '_' + str(farm) + '_' + str(year) + '_2' )
 
+    def beet_pot_RotCnstr(model_, vals_, year_, crop_, i_):
+        if year_ >= 3:
+            if crop_ == 3 or crop_ == 5:
+                # we only enfore this specific constraint for (rape =4; potato = 5, beets = 3)
+                # Enforce potato and beets constraint only if potato and beets in year AND in any of
+                # the preceding two years
+                if vals_[str(crop_)][i_, year_] > 0.5 and any(vals_[str(crop_)][i_, year_ - n] > 0.5 for n in range(1, 4)):
+                    model_.cbLazy(model_._vars[str(crop)][i_, year_].item() +
+                                 model_._vars[str(crop)][i_, year_ - 1].item() +
+                                 model_._vars[str(crop)][i_, year_ - 2].item() +
+                                 model_._vars[str(crop)][i_, year_ - 3].item() <= 1)
+
+    def rape_RotCnstr(model_, vals_, year_, crop_, i_):
+        if year_ >= 2:
+            if crop_ == 4:
+                # Enforce rapeseed constraint only if rapeseed in year AND in any of the preceding
+                # two years
+                if vals_[str(crop_)][i_, year_] > 0.5 and any(vals_[str(crop_)][i_, year_ - n] > 0.5 for n in range(1, 3)):
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                 model_._vars[str(crop_)][i_, year_ - 1].item() +
+                                 model_._vars[str(crop_)][i_, year_ - 2].item() <= 1)
+
+    def legume_RotCnstr(model_, vals_, year_, crop_, i_):
+        if year_ >= 0:
+            if crop_ == 12:
+                # Enforce legume constraint only if legumes in two consecutive years
+                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ - 1] > 0.5:
+                    # legume constraints
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                 model_._vars[str(crop_)][i_, year_ - 1].item() <= 1)
+
+    def CropRotRules(model, where):
+        if where == gp.GRB.Callback.MIPSOL:
+            print('enforcing crop rot rules')
+            vals = model.cbGetSolution(model._vars)
+            for i_crop, crop in enumerate(unique_crops):
+                # implementing the sugar beet constraint first
+                for i, id in enumerate(unique_field_ids):
+                    for year in range(n_years):
+                        #legume_RotCnstr(model, vals, year, crop, i)
+                        beet_pot_RotCnstr(model, vals, year, crop, i)
+                        rape_RotCnstr(model, vals, year, crop, i)
+
     ####################################################################################################################
     # default is minimize
     m.setObjective(obj, GRB.MAXIMIZE)
     # in case the model is not feasible try this:
+
     if m_infeas:
         iis = m.computeIIS()
         m.write('my_iis.ilp')
 
     m.write('maxent_lp.lp')
+    m.params.LazyConstraints = 1
     m.params.Heuristics = 0.9
-    m.optimize()
-
+    print('starting optimization')
+    m._vars = vars  # Store variables for use in the callback
+    m.optimize(CropRotRules)
+    # CropRotRules
     ####################################################################################################################
     # extract the binary solution for each crop from the model m
     out_imgs_allyears = []
@@ -224,12 +271,13 @@ def run_optimization_seq():
         field_id_arr_allyears.append(field_id_arr)
         opt_frame = pd.DataFrame({'field_id': fids_list, 'OPT_KTYP_' + str(year): crop_type_list})
         iacs_gp = iacs_gp.merge(opt_frame, on='field_id')
-    iacs_gp.to_file('./output/iacs_opt.shp')
+    iacs_gp.to_file('./' + out_path + '/iacs_opt.shp')
 
-    write_array_disk_universal(np.stack(field_id_arr_allyears, axis=0), './temp/reference_raster.tif', outPath='./output/maxent_croptypes_' + str(tolerance),
+    write_array_disk_universal(np.stack(field_id_arr_allyears, axis=0), './' + temp_path + '/reference_raster.tif', outPath='./' + out_path + '/maxent_croptypes_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
     ####################################################################################################################
     analyse_solution_seq(tolerance=tolerance)
+    get_change_map_seq(n_years)
     for year in range(n_years):
         diss_init = iacs_gp.dissolve(by=['crp_yr_' + str(year)], as_index=False)
         diss_init['area_init'] = diss_init.area * 0.0001
@@ -238,13 +286,13 @@ def run_optimization_seq():
         diss_init['area_opt'] = diss_opt.area * 0.0001
         # diss_init = diss_init.drop('geometry')
         diss_init = diss_init[['crp_yr_' + str(year), 'area_init', 'area_opt']]
-        diss_init.to_csv('output/shares_bb_iacs' + str(year) + '.csv')
+        diss_init.to_csv('./' + out_path + '/shares_bb_iacs' + str(year) + '.csv')
 
         diss_init = iacs_gp.dissolve(by=[farm_id_column, 'crp_yr_' + str(year)], as_index=False).copy()
         diss_init['area_init'] = diss_init.area * 0.0001
         diss_opt = iacs_gp.dissolve(by=[farm_id_column, 'OPT_KTYP_' + str(year)], as_index=False).copy()
         diss_opt['area_opt'] = diss_opt.area * 0.0001
-        merged = pd.merge(diss_init, diss_opt, left_on=['farm_id', 'crp_yr_' + str(year)], right_on=['farm_id', 'OPT_KTYP_' + str(year)])
+        merged = pd.merge(diss_init, diss_opt, left_on=[farm_id_column, 'crp_yr_' + str(year)], right_on=[farm_id_column, 'OPT_KTYP_' + str(year)])
 
         if diversity_type == 'attainable':
             # Check if farm crop acreage constraint was violated; There should be zero violations;

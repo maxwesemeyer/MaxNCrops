@@ -10,12 +10,12 @@ from config import *
 
 
 def run_optimization():
-    if not os.path.exists("temp"):
+    if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
-        os.makedirs("temp")
-    if not os.path.exists("output"):
+        os.makedirs(temp_path)
+    if not os.path.exists(out_path):
         # Create the output directory if it does not exist
-        os.makedirs("output")
+        os.makedirs(out_path)
     if rasterize:
         print('rasterizing...')
         rasterize_input_shp(crop_type_column=crop_type_column, farm_id_column=farm_id_column)
@@ -26,12 +26,12 @@ def run_optimization():
     if verbatim:
         print(len(unique_field_ids), 'number of decision units')
     ####################################################################################################################
-    shares_croptypes = pd.read_csv('./temp/shares_iacs.csv')
+    shares_croptypes = pd.read_csv('./' + temp_path + '/' + 'shares_iacs.csv')
 
-    with open('./temp/taboo_croptypes_dict.pkl', 'rb') as f:
+    with open('./' + temp_path + '/' + 'taboo_croptypes_dict.pkl', 'rb') as f:
         taboo_croptypes_dict = pickle.load(f)
     # the structure of farm_field_dict is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
-    with open('./temp/farm_field_dict.pkl', 'rb') as f:
+    with open('./' + temp_path + '/' + 'farm_field_dict.pkl', 'rb') as f:
         farm_field_dict = pickle.load(f)
 
     ####################################################################################################################
@@ -39,7 +39,7 @@ def run_optimization():
     # block id: [share of fieldid1 in this block, share of fieldid2 in this block,
     # share of fieldid3 in this block, (=number of decision units)...]
 
-    with open('./temp/block_dict.pkl', 'rb') as f:
+    with open('./' + temp_path + '/' + 'block_dict.pkl', 'rb') as f:
         block_dict = pickle.load(f)
     if verbatim:
         print(len(unique_crops), 'unique crops check all crop types', unique_crops)
@@ -185,12 +185,12 @@ def run_optimization():
     field_id_arr = field_id_arr.astype(int)
     opt_frame = pd.DataFrame({'field_id': fids_list, 'OPT_KTYP': crop_type_list})
     iacs_gp = iacs_gp.merge(opt_frame, on='field_id')
-    iacs_gp.to_file('./output/iacs_opt.shp')
-    write_array_disk_universal(np.expand_dims(field_id_arr, axis=0), './temp/reference_raster.tif', outPath='./output/opt_crop_allocation_' + str(tolerance),
+    iacs_gp.to_file('./' + out_path + '/' + 'iacs_opt.shp')
+    write_array_disk_universal(np.expand_dims(field_id_arr, axis=0), './' + temp_path + '/' + 'reference_raster.tif', outPath='./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
     ####################################################################################################################
     analyse_solution(tolerance=tolerance)
-
+    get_change_map()
     diss_init = iacs_gp.dissolve(by=[crop_type_column], as_index=False)
     diss_init['area_init'] = diss_init.area * 0.0001
 
@@ -198,7 +198,7 @@ def run_optimization():
     diss_init['area_opt'] = diss_opt.area * 0.0001
     # diss_init = diss_init.drop('geometry')
     diss_init = diss_init[[crop_type_column, 'area_init', 'area_opt']]
-    diss_init.to_csv('output/shares_bb_iacs.csv')
+    diss_init.to_csv('' + out_path + '/' + 'shares_bb_iacs.csv')
 
     diss_init = iacs_gp.dissolve(by=[farm_id_column, crop_type_column], as_index=False).copy()
     diss_init['area_init'] = diss_init.area * 0.0001
