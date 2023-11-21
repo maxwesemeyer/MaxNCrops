@@ -161,4 +161,54 @@ def check_CropRotRules(historic_croptypes_dict):
     return violation_dict, longest_seq_dict
 
 
+def check_crop_presuc(value, crop_t):
+    # following crops of any crop type
+    preceding_crop_list = []
+    succeeding_crop_list = []
+    v_seq = np.where(np.array(value) == crop_names_dict[crop_t], 1, 0)
+    if sum(v_seq) > 0:
+        for i, value_year in enumerate(v_seq):
+            if value_year > 0:
+                # this implementation is shorter than if statements checking if i-1 is possible
+                try:
+                    preceding = value[i - 1]
+                    preceding_crop_list.append(preceding)
+                except:
+                    None
+                try:
+                    succeeding = value[i + 1]
+                    succeeding_crop_list.append(succeeding)
+                except:
+                    None
+    return preceding_crop_list, succeeding_crop_list
+
+
+def get_rotations(historic_croptypes_dict):
+    # this function extracts crop rotation characteristics such as the most frequent following crops
+    final_df = pd.DataFrame(
+        {'crop_t': [], 'ct': [], 'crop_t_from': [],
+         'pre_suc': []})
+    for key_crop, value_crop in crop_names_dict.items():
+        preceding_crop_sublist = []
+        succeeding_crop_sublist = []
+
+        for key, value in historic_croptypes_dict.items():
+            if key == 0.0:
+                continue
+            rape_pre, rape_suc = check_crop_presuc(value, key_crop)
+            preceding_crop_sublist.append(rape_pre)
+            succeeding_crop_sublist.append(rape_suc)
+        unique, counts = np.unique(sum(preceding_crop_sublist, []), return_counts=True)
+        preced_df = pd.DataFrame({'crop_t': unique, 'ct': counts, 'crop_t_from': np.repeat(key_crop, repeats=counts.shape[0]),
+                                  'pre_suc': np.repeat("pre", repeats=counts.shape[0])})
+
+        final_df = final_df.append(preced_df)
+        unique, counts = np.unique(sum(succeeding_crop_sublist, []), return_counts=True)
+        succseed_df = pd.DataFrame(
+            {'crop_t': unique, 'ct': counts, 'crop_t_from': np.repeat(key_crop, repeats=counts.shape[0]),
+             'pre_suc': np.repeat("suc", repeats=counts.shape[0])})
+        final_df = final_df.append(succseed_df)
+    return final_df
+
+
 
