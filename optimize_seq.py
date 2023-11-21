@@ -1,14 +1,17 @@
+import gurobipy
+import numpy as np
+
 from create_dicts import *
 from rasterize import *
 from analyse_solution import *
 from config import *
-
+from CropRotRules import *
 
 ########################################################################################################################
 # by Maximilian Wesemeyer
 # for questions contact wesemema@hu-berlin.de
 ########################################################################################################################
-# THIS IS NOT WORKING RELIABLY YET (especially for new datasets)
+# THIS IS NOT Finished YET
 # some crop types are hard coded
 ########################################################################################################################
 
@@ -34,20 +37,23 @@ def run_optimization_seq():
 
     with open('./' + temp_path + '/historic_croptypes_dict.pkl', 'rb') as f:
         historic_croptypes_dict = pickle.load(f)
-
     ####################################################################################################################
     # A bit of a messy workaround if not all crop types are cultivated in a given year; This is the case
-    # especially for very small study areas
+    # mostly for very small study areas
     all_crops = []
     for i, id in enumerate(unique_field_ids):
         all_crops.append(list(np.unique(np.array(historic_croptypes_dict[id]))))
     unique_crops = np.unique(list(chain.from_iterable(all_crops)))
     unique_crops = np.setdiff1d(unique_crops, [255, 99])
     unique_crops = np.insert(unique_crops, 0, 0)
+
+
     ####################################################################################################################
 
     n_years = len(historic_croptypes_dict[1])
-
+    # this dictionary contains 1 for each Crop rotation constraint the farmers violated themselves
+    CropRotViolation_dict, longest_seq_dict = check_CropRotRules(historic_croptypes_dict)
+    print(longest_seq_dict)
     # the structure of farm_field_dict is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
     with open('./' + temp_path + '/farm_field_dict.pkl', 'rb') as f:
         farm_field_dict = pickle.load(f)
@@ -185,36 +191,118 @@ def run_optimization_seq():
                                         tolerance / 100),
                                 name='acreage_' + str(crop) + '_' + str(farm) + '_' + str(year) + '_2' )
 
+
+    def cereal_seq_RotCnstr(model_, vals_, crop_, i_):
+        if crop_ == crop_names_dict['winter_cereals']:
+            # index 1 == cereals, index 0 == maize
+            longest_farmer_seq_i = longest_seq_dict[i_][1]
+            bin_seq = [1 if vals_[str(crop_)][i_, iter] > 0.5 else 0 for iter in range(n_years)]
+            max_optimized_seq_length, max_start_index = longest_sequence(bin_seq)
+            if max_optimized_seq_length > longest_farmer_seq_i:
+                #for start_index in range(n_years-max_optimized_seq_length):
+                # the sum of the longest sequence needs to be smaller or
+                # equal to the max_optimized_seq_length - 1, which means we introduce a 0 in it
+                # EXAMPLE: [1, 1, 1, 1] and longest sequence is supposed to be 2 in this case we cannot set the sum
+                # of it to 2 because this case would be ok too: [1, 1, 0, 1] (sum = 3); so we set a constraint that
+                # introduces a zero by setting the sum to max_optimized_seq_length - 1; we do this until constraint is not violated
+                #print('field: ', i_)
+                #print('4:', bin_seq, max_optimized_seq_length, max_start_index, longest_farmer_seq_i)
+                model_.cbLazy(gp.quicksum([model_._vars[str(crop_)][i_, max_start_index + indexo].item() for indexo
+                                                   in range(max_optimized_seq_length)]) <= max_optimized_seq_length - 1)
+
+
+    def sunflower_legumes_RotCnstr(model_, vals_, year_, crop_, i_):
+        # no legumes before sunflower
+        if year_ >= 1:
+            if crop_ == crop_names_dict['sunflowers']:
+                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_names_dict['legumes'])][i_, year_ - 1] > 0.5:
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                  model_._vars[str(crop_names_dict['legumes'])][i_, year_ - 1].item() <= 1)
+
+
+    def sunflower_rapeseed_RotCnstr(model_, vals_, year_, crop_, i_):
+        # no rapeseed before or after sunflowers
+        if year < 1:
+            if crop_ == crop_names_dict['sunflowers']:
+                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_names_dict['rapeseed'])][i_, year_ + 1] > 0.5:
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                  model_._vars[str(crop_names_dict['rapeseed'])][i_, year_ + 1].item() <= 1)
+        elif year_ >= 1 and year_ <= n_years-2:
+            if crop_ == crop_names_dict['sunflowers']:
+                if vals_[str(crop_)][i_, year_] > 0.5 and (vals_[str(crop_names_dict['rapeseed'])][i_, year_ + 1] > 0.5 or \
+                        vals_[str(crop_names_dict['rapeseed'])][i_, year_ - 1] > 0.5):
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                 model_._vars[str(crop_names_dict['rapeseed'])][i_, year_ + 1].item() +
+                                 model_._vars[str(crop_names_dict['rapeseed'])][i_, year_ - 1].item() <= 1)
+        elif year_ > n_years-2:
+            # if there is no consecutive year only a preceding
+            if crop_ == crop_names_dict['sunflowers']:
+                if vals_[str(crop_)][i_, year_] > 0.5 and (vals_[str(crop_names_dict['rapeseed'])][i_, year_ - 1] > 0.5):
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                 model_._vars[str(crop_names_dict['rapeseed'])][i_, year_ - 1].item() <= 1)
+
+
     def beet_pot_RotCnstr(model_, vals_, year_, crop_, i_):
-        if year_ >= 3:
+        #
+        if year_ < n_years-3:
             if crop_ == 3 or crop_ == 5:
                 # we only enfore this specific constraint for (rape =4; potato = 5, beets = 3)
                 # Enforce potato and beets constraint only if potato and beets in year AND in any of
                 # the preceding two years
-                if vals_[str(crop_)][i_, year_] > 0.5 and any(vals_[str(crop_)][i_, year_ - n] > 0.5 for n in range(1, 4)):
-                    model_.cbLazy(model_._vars[str(crop)][i_, year_].item() +
-                                 model_._vars[str(crop)][i_, year_ - 1].item() +
-                                 model_._vars[str(crop)][i_, year_ - 2].item() +
-                                 model_._vars[str(crop)][i_, year_ - 3].item() <= 1)
+                if (vals_[str(crop_)][i_, year_] > 0.5 and
+                        (vals_[str(crop_)][i_, year_ + 1] > 0.5 or
+                         vals_[str(crop_)][i_, year_ + 2] > 0.5 or
+                        vals_[str(crop_)][i_, year_ + 3])):
+
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                 model_._vars[str(crop_)][i_, year_ + 1].item() +
+                                 model_._vars[str(crop_)][i_, year_ + 2].item() +
+                                 model_._vars[str(crop_)][i_, year_ + 3].item() <= 1)
+        if year_ == n_years - 3:
+            if crop_ == 3 or crop_ == 5:
+                if (vals_[str(crop_)][i_, year_] > 0.5 and
+                        (vals_[str(crop_)][i_, year_ + 1] > 0.5 or
+                        vals_[str(crop_)][i_, year_ + 2] > 0.5)):
+
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                  model_._vars[str(crop_)][i_, year_ + 1].item() +
+                                  model_._vars[str(crop_)][i_, year_ + 2].item() <= 1)
+        if year_ == n_years - 2:
+            if crop_ == 3 or crop_ == 5:
+                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ + 1] > 0.5:
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                  model_._vars[str(crop_)][i_, year_ + 1].item() <= 1)
 
     def rape_RotCnstr(model_, vals_, year_, crop_, i_):
-        if year_ >= 2:
-            if crop_ == 4:
+        if year_ < n_years-2:
+            if crop_ == crop_names_dict['rapeseed']:
                 # Enforce rapeseed constraint only if rapeseed in year AND in any of the preceding
                 # two years
-                if vals_[str(crop_)][i_, year_] > 0.5 and any(vals_[str(crop_)][i_, year_ - n] > 0.5 for n in range(1, 3)):
+                if (vals_[str(crop_)][i_, year_] > 0.5 and
+                        (vals_[str(crop_)][i_, year_ + 1] > 0.5 or
+                        vals_[str(crop_)][i_, year_ + 2] > 0.5)):
+
                     model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                 model_._vars[str(crop_)][i_, year_ - 1].item() +
-                                 model_._vars[str(crop_)][i_, year_ - 2].item() <= 1)
+                                  model_._vars[str(crop_)][i_, year_ + 1].item() +
+                                  model_._vars[str(crop_)][i_, year_ + 2].item() <= 1)
+        if year_ == n_years-2:
+            if crop_ == crop_names_dict['rapeseed']:
+                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ + 1] > 0.5:
+                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                  model_._vars[str(crop_)][i_, year_ + 1].item() <= 1)
 
     def legume_RotCnstr(model_, vals_, year_, crop_, i_):
         if year_ >= 0:
             if crop_ == 12:
-                # Enforce legume constraint only if legumes in two consecutive years
-                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ - 1] > 0.5:
-                    # legume constraints
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                 model_._vars[str(crop_)][i_, year_ - 1].item() <= 1)
+                # if farmers cultivated legumes more than 3 times in 7 years we cannot enfore the constraint
+                if sum(vals_[str(crop_)][i_, iter] > 0.5 for iter in range(n_years)) >= 3:
+                    return
+                else:
+                    # Enforce legume constraint only if legumes in two consecutive years
+                    if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ - 1] > 0.5:
+                        # legume constraints
+                        model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
+                                     model_._vars[str(crop_)][i_, year_ - 1].item() <= 1)
 
     def CropRotRules(model, where):
         if where == gp.GRB.Callback.MIPSOL:
@@ -223,52 +311,58 @@ def run_optimization_seq():
             for i_crop, crop in enumerate(unique_crops):
                 # implementing the sugar beet constraint first
                 for i, id in enumerate(unique_field_ids):
+                    # the cereal constraint needs the entire sequence as input
+                    cereal_seq_RotCnstr(model, vals, crop, i)
                     for year in range(n_years):
+                        # [i][4]  == sunflowers
+                        #if CropRotViolation_dict[i][4] == 0:
+                        #    print()
                         #legume_RotCnstr(model, vals, year, crop, i)
                         beet_pot_RotCnstr(model, vals, year, crop, i)
                         rape_RotCnstr(model, vals, year, crop, i)
+                        sunflower_rapeseed_RotCnstr(model, vals, year, crop, i)
+                        sunflower_legumes_RotCnstr(model, vals, year, crop, i)
 
     ####################################################################################################################
     # default is minimize
     m.setObjective(obj, GRB.MAXIMIZE)
-    # in case the model is not feasible try this:
 
-    if m_infeas:
-        iis = m.computeIIS()
-        m.write('my_iis.ilp')
 
-    m.write('maxent_lp.lp')
+    #m.write('maxent_lp.lp')
     m.params.LazyConstraints = 1
-    m.params.Heuristics = 0.9
+    #m.params.Heuristics = 0.9
     print('starting optimization')
     m._vars = vars  # Store variables for use in the callback
     m.optimize(CropRotRules)
+    m.write('maxent_lp.lp')
     # CropRotRules
+    if m.status == gp.GRB.Status.INFEASIBLE:
+        # in case the model is not feasible
+        # it will generate a "my_iis.ilp" file
+        # The Irreducible Inconsistent Subsystem (iis) helps to understand why a model is infeasible
+        # this can easily happen when farmers the crop rotation rules are too strict (because farmers violated them)
+        iis = m.computeIIS()
+        m.write('my_iis.ilp')
+        #constraint_to_check_relaxed = m.getConstrByName(constraint_to_check)
     ####################################################################################################################
     # extract the binary solution for each crop from the model m
-    out_imgs_allyears = []
-    for year in range(n_years):
-        out_imgs = []
-        for crop in unique_crops:
-            solution_arr = vars["{0}".format(crop)].getAttr("x")
-            out_imgs.append(solution_arr[:, year])
-        out_imgs_allyears.append(out_imgs)
-
     field_id_arr_allyears = []
     for year in range(n_years):
         fids_list = []
         crop_type_list = []
+        field_id_arr_copy = field_id_arr.copy()
         for id, indices_field in enumerate(sparse_idx):
-            # id = field id
-            # indices_field the indices of field field_id
-            for original_crop_class, croptype in zip(unique_crops, out_imgs_allyears[year]):
-                # only larger than 0.1 will be interpreted as 1;
-                if croptype[id] > 0.1:
-                    field_id_arr[indices_field] = original_crop_class
-                    fids_list.append(id)
-                    crop_type_list.append(original_crop_class)
-        field_id_arr = field_id_arr.astype(int)
-        field_id_arr_allyears.append(field_id_arr)
+            for crop_counter, original_crop_class in enumerate(unique_crops):
+                    # id = field id
+                    # indices_field the indices of field field_id
+
+                    # only larger than 0.1 will be interpreted as 1;
+                    if m._vars[str(original_crop_class)].X[id, year].item() > 0.1:
+                        field_id_arr_copy[indices_field] = original_crop_class
+                        fids_list.append(id)
+                        crop_type_list.append(original_crop_class)
+        field_id_arr_copy = field_id_arr_copy.astype(int)
+        field_id_arr_allyears.append(field_id_arr_copy)
         opt_frame = pd.DataFrame({'field_id': fids_list, 'OPT_KTYP_' + str(year): crop_type_list})
         iacs_gp = iacs_gp.merge(opt_frame, on='field_id')
     iacs_gp.to_file('./' + out_path + '/iacs_opt.shp')
@@ -276,33 +370,19 @@ def run_optimization_seq():
     write_array_disk_universal(np.stack(field_id_arr_allyears, axis=0), './' + temp_path + '/reference_raster.tif', outPath='./' + out_path + '/maxent_croptypes_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
     ####################################################################################################################
-    analyse_solution_seq(tolerance=tolerance)
+    analyse_solution_seq()
     get_change_map_seq(n_years)
-    for year in range(n_years):
-        diss_init = iacs_gp.dissolve(by=['crp_yr_' + str(year)], as_index=False)
-        diss_init['area_init'] = diss_init.area * 0.0001
+    get_shares(iacs_gp, n_years)
+    ####################################################################################################################
+    # calculate historic_croptypes_dict and check for violations of the rules again
+    taboo_croptypes_dict, historic_croptypes_dict = get_historic_croptypes(field_id_array=field_id_arr.copy(), historic_croptypes_array=np.stack(field_id_arr_allyears, axis=0), unique_croptypes=unique_crops)
+    CropRotViolation_dict, longest_seq_dict_opt = check_CropRotRules(historic_croptypes_dict)
 
-        diss_opt = iacs_gp.dissolve(by=['OPT_KTYP_' + str(year)], as_index=False)
-        diss_init['area_opt'] = diss_opt.area * 0.0001
-        # diss_init = diss_init.drop('geometry')
-        diss_init = diss_init[['crp_yr_' + str(year), 'area_init', 'area_opt']]
-        diss_init.to_csv('./' + out_path + '/shares_bb_iacs' + str(year) + '.csv')
-
-        diss_init = iacs_gp.dissolve(by=[farm_id_column, 'crp_yr_' + str(year)], as_index=False).copy()
-        diss_init['area_init'] = diss_init.area * 0.0001
-        diss_opt = iacs_gp.dissolve(by=[farm_id_column, 'OPT_KTYP_' + str(year)], as_index=False).copy()
-        diss_opt['area_opt'] = diss_opt.area * 0.0001
-        merged = pd.merge(diss_init, diss_opt, left_on=[farm_id_column, 'crp_yr_' + str(year)], right_on=[farm_id_column, 'OPT_KTYP_' + str(year)])
-
-        if diversity_type == 'attainable':
-            # Check if farm crop acreage constraint was violated; There should be zero violations;
-            error = 0
-            for i, row in merged.iterrows():
-                # print(row['area_opt'], row['area_init'])
-                if (row['area_opt'] > row['area_init'] + row['area_init'] * (tolerance/100)) or (
-                        row['area_opt'] < row['area_init'] - row['area_init'] * (tolerance/100)):
-                    error += 1
-            print('errors: ', error)
+    for i in range(len(unique_field_ids)):
+        if longest_seq_dict_opt[i][1] > longest_seq_dict[i][1]:
+            print('error', longest_seq_dict[i], longest_seq_dict_opt[i], i)
+    print(longest_seq_dict)
+    print(longest_seq_dict_opt)
 
 
 if __name__ == '__main__':

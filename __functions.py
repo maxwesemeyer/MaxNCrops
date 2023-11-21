@@ -18,6 +18,7 @@ from rasterio import features
 from rasterio.transform import from_origin
 from itertools import chain
 from config import *
+import itertools
 
 
 def compute_M(data):
@@ -162,13 +163,17 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
 
         for year in range(n_bands):
             historic, counts = np.unique(historic_croptypes_array[year, mask], return_counts=True)
-            if i == 0:
-                historic_cultivations.append(historic[np.argsort(counts)[0]])
-            # In case of a very small field it is possible that the 0 class has the highest count; In this case the second
-            # highest value is chosen
-            elif historic[np.argmax(counts)] == 0:
-                historic_cultivations.append(historic[np.argsort(counts)[-2]])
-            else:
+            try:
+                if i == 0:
+                    historic_cultivations.append(historic[np.argsort(counts)[0]])
+                # In case of a very small field it is possible that the 0 class has the highest count; In this case the second
+                # highest value is chosen
+
+                elif historic[np.argmax(counts)] == 0:
+                    historic_cultivations.append(historic[np.argsort(counts)[-2]])
+                else:
+                    historic_cultivations.append(historic[np.argmax(counts)])
+            except:
                 historic_cultivations.append(historic[np.argmax(counts)])
 
         taboo_crops = []
@@ -188,3 +193,23 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
     taboo_croptypes_dict = dict(zip(unique_id_list, taboo_crops_list))
     historic_croptypes_dict = dict(zip(unique_id_list, historic_crops_list))
     return taboo_croptypes_dict, historic_croptypes_dict
+
+
+def longest_sequence(binary_array):
+    max_sequence = 0
+    current_sequence = 0
+    start_index = 0
+    max_start_index = 0
+
+    for i, value in enumerate(binary_array):
+        if value == 1:
+            current_sequence += 1
+            if current_sequence == 1:
+                start_index = i  # Update start index when a new sequence begins
+            if current_sequence > max_sequence:
+                max_sequence = current_sequence
+                max_start_index = start_index
+        else:
+            current_sequence = 0
+
+    return max_sequence, max_start_index
