@@ -14,6 +14,11 @@ from CropRotRules import *
 
 
 def run_optimization_seq():
+    # TODO add if statements in callback to avoid infeasibility
+    # TODO do we really need to reproduce the entire crop rotation
+    # maize beets sunflowers not before rapeseed
+    # no beets after rapeseed
+
     if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
         os.makedirs(temp_path)
@@ -191,11 +196,18 @@ def run_optimization_seq():
                                         tolerance / 100),
                                 name='acreage_' + str(crop) + '_' + str(farm) + '_' + str(year) + '_2' )
 
+    ####################################################################################################################
 
-    def cereal_seq_RotCnstr(model_, vals_, crop_, i_):
-        if crop_ == crop_names_dict['winter_cereals']:
+
+    def max_seq_x_RotCnstr(model_, vals_, crop_, i_, x):
+        # Currently works only for x == maize or x == winter cereals
+        if crop_ == x:
             # index 1 == cereals, index 0 == maize
-            longest_farmer_seq_i = longest_seq_dict[i_][1]
+            if x == crop_names_dict['winter_cereals']:
+                longest_farmer_seq_i = longest_seq_dict[i_][1]
+            elif x == crop_names_dict['maize']:
+                longest_farmer_seq_i = longest_seq_dict[i_][0]
+
             bin_seq = [1 if vals_[str(crop_)][i_, iter] > 0.5 else 0 for iter in range(n_years)]
             max_optimized_seq_length, max_start_index = longest_sequence(bin_seq)
             if max_optimized_seq_length > longest_farmer_seq_i:
@@ -209,106 +221,37 @@ def run_optimization_seq():
                 model_.cbLazy(gp.quicksum([model_._vars[str(crop_)][i_, max_start_index + indexo].item() for indexo
                                                    in range(max_optimized_seq_length)]) <= max_optimized_seq_length - 1)
 
+    def no_x_after_y_RotCnstr(model_, vals_, year_, crop_, i_, x, y):
+        # EXAMPLE: we can reformulate any no x before y to no x after y:
+        # no sunflowers after legumes [12, 60] x = sunflowers , y = legumes
+        # no sunflowers before legumes = [60, 12] == no legumes after sunflowers x = legumes, y = sunflowers
+        # can also be used when x == y; (e.g. no sunflowers after sunflowers)
+        if year_ <= n_years-2:
+            if crop_ == y:
+                if x == y:
+                    # if farmers cultivated y more than 3 times in 7 years we cannot enfore the constraint
+                    if sum(vals_[str(y)][i_, iter] > 0.5 for iter in range(n_years)) > 3:
+                        return
 
-    def sunflower_legumes_RotCnstr(model_, vals_, year_, crop_, i_):
-        # no legumes before sunflower
-        if year_ >= 1:
-            if crop_ == crop_names_dict['sunflowers']:
-                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_names_dict['legumes'])][i_, year_ - 1] > 0.5:
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                  model_._vars[str(crop_names_dict['legumes'])][i_, year_ - 1].item() <= 1)
-
-    def sunflower_RotCnstr(model_, vals_, year_, crop_, i_):
-        if year >= 1:
-            if crop_ == crop_names_dict['sunflowers']:
-                # Enforce legume constraint only if legumes in two consecutive years
-                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ - 1] > 0.5:
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                  model_._vars[str(crop_)][i_, year_ - 1].item() <= 1)
-
-    def sunflower_rapeseed_RotCnstr(model_, vals_, year_, crop_, i_):
-        # no rapeseed before or after sunflowers
-        if year < 1:
-            if crop_ == crop_names_dict['sunflowers']:
-                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_names_dict['rapeseed'])][i_, year_ + 1] > 0.5:
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                  model_._vars[str(crop_names_dict['rapeseed'])][i_, year_ + 1].item() <= 1)
-        elif year_ >= 1 and year_ <= n_years-2:
-            if crop_ == crop_names_dict['sunflowers']:
-                if vals_[str(crop_)][i_, year_] > 0.5 and (vals_[str(crop_names_dict['rapeseed'])][i_, year_ + 1] > 0.5 or \
-                        vals_[str(crop_names_dict['rapeseed'])][i_, year_ - 1] > 0.5):
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                 model_._vars[str(crop_names_dict['rapeseed'])][i_, year_ + 1].item() +
-                                 model_._vars[str(crop_names_dict['rapeseed'])][i_, year_ - 1].item() <= 1)
-        elif year_ > n_years-2:
-            # if there is no consecutive year only a preceding
-            if crop_ == crop_names_dict['sunflowers']:
-                if vals_[str(crop_)][i_, year_] > 0.5 and (vals_[str(crop_names_dict['rapeseed'])][i_, year_ - 1] > 0.5):
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                 model_._vars[str(crop_names_dict['rapeseed'])][i_, year_ - 1].item() <= 1)
+                if vals_[str(y)][i_, year_] > 0.5 and vals_[str(x)][i_, year_ + 1] > 0.5:
+                    model_.cbLazy(model_._vars[str(y)][i_, year_].item() +
+                                  model_._vars[str(x)][i_, year_ + 1].item() <= 1)
 
 
-    def beet_pot_RotCnstr(model_, vals_, year_, crop_, i_):
-        #
-        if year_ < n_years-3:
-            if crop_ == 3 or crop_ == 5:
-                # we only enfore this specific constraint for (rape =4; potato = 5, beets = 3)
-                # Enforce potato and beets constraint only if potato and beets in year AND in any of
-                # the preceding two years
-                if (vals_[str(crop_)][i_, year_] > 0.5 and
-                        (vals_[str(crop_)][i_, year_ + 1] > 0.5 or
-                         vals_[str(crop_)][i_, year_ + 2] > 0.5 or
-                        vals_[str(crop_)][i_, year_ + 3])):
+    def max_return_t_for_x(model_, vals_, year_, crop_, i_, t, x):
+        # we do t-1 because then setting t is then more intuitive. Setting t = 2 means that a crop can be grown every
+        # second year [1, 0, 1]
+        t = t -1
+        # adapt t to n_years, so we don't index more than the list length
+        t_adapted_to_n_years = t
+        while t_adapted_to_n_years + year_ > n_years-1:
+            t_adapted_to_n_years = t_adapted_to_n_years - 1
 
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                 model_._vars[str(crop_)][i_, year_ + 1].item() +
-                                 model_._vars[str(crop_)][i_, year_ + 2].item() +
-                                 model_._vars[str(crop_)][i_, year_ + 3].item() <= 1)
-        if year_ == n_years - 3:
-            if crop_ == 3 or crop_ == 5:
-                if (vals_[str(crop_)][i_, year_] > 0.5 and
-                        (vals_[str(crop_)][i_, year_ + 1] > 0.5 or
-                        vals_[str(crop_)][i_, year_ + 2] > 0.5)):
+        if crop_ == x:
+            if vals_[str(x)][i_, year_] > 0.5 and any(vals_[str(x)][i_, year_ + add] > 0.5 for add in range(1, t_adapted_to_n_years + 1)):
+                model_.cbLazy(gp.quicksum([model_._vars[str(crop_)][i_, year_ + add].item()
+                                               for add in range(t_adapted_to_n_years + 1)]) <= 1)
 
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                  model_._vars[str(crop_)][i_, year_ + 1].item() +
-                                  model_._vars[str(crop_)][i_, year_ + 2].item() <= 1)
-        if year_ == n_years - 2:
-            if crop_ == 3 or crop_ == 5:
-                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ + 1] > 0.5:
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                  model_._vars[str(crop_)][i_, year_ + 1].item() <= 1)
-
-    def rape_RotCnstr(model_, vals_, year_, crop_, i_):
-        if year_ < n_years-2:
-            if crop_ == crop_names_dict['rapeseed']:
-                # Enforce rapeseed constraint only if rapeseed in year AND in any of the preceding
-                # two years
-                if (vals_[str(crop_)][i_, year_] > 0.5 and
-                        (vals_[str(crop_)][i_, year_ + 1] > 0.5 or
-                        vals_[str(crop_)][i_, year_ + 2] > 0.5)):
-
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                  model_._vars[str(crop_)][i_, year_ + 1].item() +
-                                  model_._vars[str(crop_)][i_, year_ + 2].item() <= 1)
-        if year_ == n_years-2:
-            if crop_ == crop_names_dict['rapeseed']:
-                if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ + 1] > 0.5:
-                    model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                  model_._vars[str(crop_)][i_, year_ + 1].item() <= 1)
-
-    def legume_RotCnstr(model_, vals_, year_, crop_, i_):
-        if year_ > 0:
-            if crop_ == crop_names_dict['legumes']:
-                # if farmers cultivated legumes more than 3 times in 7 years we cannot enfore the constraint
-                if sum(vals_[str(crop_)][i_, iter] > 0.5 for iter in range(n_years)) >= 3:
-                    return
-                else:
-                    # Enforce legume constraint only if legumes in two consecutive years
-                    if vals_[str(crop_)][i_, year_] > 0.5 and vals_[str(crop_)][i_, year_ - 1] > 0.5:
-                        # legume constraints
-                        model_.cbLazy(model_._vars[str(crop_)][i_, year_].item() +
-                                     model_._vars[str(crop_)][i_, year_ - 1].item() <= 1)
 
     def CropRotRules_lazy(model, where):
         if where == gp.GRB.Callback.MIPSOL:
@@ -318,19 +261,48 @@ def run_optimization_seq():
                 # implementing the sugar beet constraint first
                 for i, id in enumerate(unique_field_ids):
                     # the cereal constraint needs the entire sequence as input
-                    cereal_seq_RotCnstr(model, vals, crop, i)
+                    max_seq_x_RotCnstr(model, vals, crop, i, x=crop_names_dict['winter_cereals'])
                     for year in range(n_years):
-                        # [i][4]  == sunflowers
-                        # [i][3]  == legumes
+                        # CropRotViolation_dict[i][4]  == sunflowers
+                        # CropRotViolation_dict[i][3]  == legumes
+                        # no sunflowers after sunflowers
+                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['sunflowers'], y=crop_names_dict['sunflowers'])
+                        # no legumes after legumes
                         if CropRotViolation_dict[i][3] == 0:
                             # we enforce this constraint only it was respected in the initial solution on that field
-                            legume_RotCnstr(model, vals, year, crop, i)
-                        beet_pot_RotCnstr(model, vals, year, crop, i)
-                        rape_RotCnstr(model, vals, year, crop, i)
-                        sunflower_rapeseed_RotCnstr(model, vals, year, crop, i)
-                        sunflower_legumes_RotCnstr(model, vals, year, crop, i)
-                        sunflower_RotCnstr(model, vals, year, crop, i)
+                            no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['legumes'], y=crop_names_dict['legumes'])
+                        # no sunflowers(x) after legumes(y)
+                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['sunflowers'], y=crop_names_dict['legumes'])
+                        # no rapeseed after sunflowers
+                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['rapeseed'], y=crop_names_dict['sunflowers'])
 
+                        # no sunflowers after rapeseed
+                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['sunflowers'], y=crop_names_dict['rapeseed'])
+                        # no beets after rapeseed
+                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['beets'], y=crop_names_dict['rapeseed'])
+
+                        # no rapeseed after maize
+                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['rapeseed'], y=crop_names_dict['maize'])
+                        # no rapeseed after beets
+                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['rapeseed'], y=crop_names_dict['beets'])
+                        # no legumes after rapeseed
+                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                              x=crop_names_dict['legumes'], y=crop_names_dict['rapeseed'])
+
+                        # max return time for rapeseed = 3 years; beets and potato = 4
+                        # max return time of 3 means  this is ok: [1, 0, 0, 1, 0, 0, 1]
+                        max_return_t_for_x(model, vals, year, crop, i, t=3, x=crop_names_dict['rapeseed'])
+                        max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['potato'])
+                        max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['beets'])
+                        max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['sunflowers'])
 
     ####################################################################################################################
     # default is minimize
@@ -339,7 +311,7 @@ def run_optimization_seq():
 
     #m.write('maxent_lp.lp')
     m.params.LazyConstraints = 1
-    #m.params.Heuristics = 0.9
+    m.params.Heuristics = 0.3
     print('starting optimization')
     m._vars = vars  # Store variables for use in the callback
     # CropRotRules
@@ -383,13 +355,13 @@ def run_optimization_seq():
     analyse_solution_seq()
     get_change_map_seq(n_years)
     get_shares(iacs_gp, n_years)
-    crop_rot_freq = get_rotations(historic_croptypes_dict)
-    crop_rot_freq.to_csv('./' + out_path + '/crop_rot_freq_' + str(tolerance) + '.csv')
+
     ####################################################################################################################
     # calculate historic_croptypes_dict and check for violations of the rules again
     taboo_croptypes_dict, historic_croptypes_dict = get_historic_croptypes(field_id_array=field_id_arr.copy(), historic_croptypes_array=np.stack(field_id_arr_allyears, axis=0), unique_croptypes=unique_crops)
     CropRotViolation_dict, longest_seq_dict_opt = check_CropRotRules(historic_croptypes_dict)
-
+    crop_rot_freq = get_rotations(historic_croptypes_dict)
+    crop_rot_freq.to_csv('./' + out_path + '/crop_rot_freq_' + str(tolerance) + '.csv')
     for i in range(len(unique_field_ids)):
         if longest_seq_dict_opt[i][1] > longest_seq_dict[i][1]:
             print('error', longest_seq_dict[i], longest_seq_dict_opt[i], i)

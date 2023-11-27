@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 
 from __functions import *
@@ -169,15 +170,16 @@ def check_crop_presuc(value, crop_t):
     if sum(v_seq) > 0:
         for i, value_year in enumerate(v_seq):
             if value_year > 0:
-                # this implementation is shorter than if statements checking if i-1 is possible
                 try:
-                    preceding = value[i - 1]
-                    preceding_crop_list.append(preceding)
+                    if i-1 >= 0:
+                        preceding = value[i - 1]
+                        preceding_crop_list.append(crop_names_dict_reversed[preceding])
                 except:
                     None
+
                 try:
                     succeeding = value[i + 1]
-                    succeeding_crop_list.append(succeeding)
+                    succeeding_crop_list.append(crop_names_dict_reversed[succeeding])
                 except:
                     None
     return preceding_crop_list, succeeding_crop_list
@@ -186,29 +188,76 @@ def check_crop_presuc(value, crop_t):
 def get_rotations(historic_croptypes_dict):
     # this function extracts crop rotation characteristics such as the most frequent following crops
     final_df = pd.DataFrame(
-        {'crop_t': [], 'ct': [], 'crop_t_from': [],
-         'pre_suc': []})
+        {'value': [], 'crop_t_from': [],
+         'pre_suc': [], 'fid': []})
     for key_crop, value_crop in crop_names_dict.items():
         preceding_crop_sublist = []
         succeeding_crop_sublist = []
-
+        ids_pre_list = []
+        ids_suc_list = []
         for key, value in historic_croptypes_dict.items():
             if key == 0.0:
                 continue
             rape_pre, rape_suc = check_crop_presuc(value, key_crop)
             preceding_crop_sublist.append(rape_pre)
             succeeding_crop_sublist.append(rape_suc)
-        unique, counts = np.unique(sum(preceding_crop_sublist, []), return_counts=True)
-        preced_df = pd.DataFrame({'crop_t': unique, 'ct': counts, 'crop_t_from': np.repeat(key_crop, repeats=counts.shape[0]),
-                                  'pre_suc': np.repeat("pre", repeats=counts.shape[0])})
+            ids_pre_list.append(list(np.repeat(key, repeats=len(rape_pre))))
+            ids_suc_list.append(list(np.repeat(key, repeats=len(rape_suc))))
+
+        preceding_crop_sublist = sum(preceding_crop_sublist, [])
+        preced_df = pd.DataFrame({'value': preceding_crop_sublist, 'crop_t_from': np.repeat(key_crop, repeats=len(preceding_crop_sublist)),
+                                  'pre_suc': np.repeat("pre", repeats=len(preceding_crop_sublist)),
+                                  'fid': sum(ids_pre_list, [])})
 
         final_df = final_df.append(preced_df)
-        unique, counts = np.unique(sum(succeeding_crop_sublist, []), return_counts=True)
-        succseed_df = pd.DataFrame(
-            {'crop_t': unique, 'ct': counts, 'crop_t_from': np.repeat(key_crop, repeats=counts.shape[0]),
-             'pre_suc': np.repeat("suc", repeats=counts.shape[0])})
+        succeeding_crop_sublist = sum(succeeding_crop_sublist, [])
+        succseed_df = pd.DataFrame({'value':succeeding_crop_sublist , 'crop_t_from': np.repeat(key_crop, repeats=len(succeeding_crop_sublist)),
+                                  'pre_suc': np.repeat("suc", repeats=len(succeeding_crop_sublist)),
+                                    'fid': sum(ids_suc_list, [])})
         final_df = final_df.append(succseed_df)
     return final_df
 
 
+def crop_rot_figures():
+    if not os.path.exists('./figures/'):
+        # Create the temp directory if it does not exist
+        os.makedirs('./figures/')
+    # Assuming in_path_1 and in_path_2 are your file paths
+    inital = pd.read_csv('./' + out_path + '/crop_rot_freq_init.csv')
+    optimized = pd.read_csv('./' + out_path + '/crop_rot_freq_' + str(tolerance) + '.csv')
 
+    inital['opt'] = "initial"
+    optimized['opt'] = "optimized"
+
+    # Concatenate the dataframes
+    test = pd.concat([inital, optimized], ignore_index=True)
+
+    # Get unique crop types and pre_suc values
+    crop_types = test['crop_t_from'].unique()
+    pre_suc_values = test['pre_suc'].unique()
+    # Create subplots
+    for croptype in crop_types:
+        fig, axes = plt.subplots(1, len(pre_suc_values), figsize=(15, 10))
+        plt.subplots_adjust(bottom=0.2)
+        for j, pre_suc_value in enumerate(pre_suc_values):
+            ax = axes[j]
+            #ax.figure()
+            ax.hist([test[(test['crop_t_from'] == croptype) & (test['opt'] == 'initial') & (test['pre_suc'] == pre_suc_value)]['value'],
+                      test[(test['crop_t_from'] == croptype) & (test['opt'] == 'optimized') & (test['pre_suc'] == pre_suc_value)]['value']],
+                     bins=np.arange(len(test['value'].unique()) + 1),
+                     alpha=0.7, label=['initial', 'optimized'], align='left')
+
+            #ax.set_xticks(np.arange(len(test['value'].unique())))
+            ax.set_xlabel('', fontsize=14)  # Adjust x-axis label font size
+            ax.set_ylabel('Frequency', fontsize=14)  # Adjust y-axis label font size
+            ax.set_xticklabels(test[(test['crop_t_from'] == croptype) &
+                                    #(test['opt'] == 'initial') &
+                                    (test['pre_suc'] == pre_suc_value)]['value'].unique(), rotation=45, ha="right", fontsize=14)
+            #ax.set_xlabel('Value')
+            ax.set_title(f"{str(croptype)} - {pre_suc_value}", fontsize=16)
+            ax.legend()
+        #plt.show()
+        plt.savefig('./figures/' + str(croptype) + '.png')
+        # Adjust layout to prevent overlapping
+        #plt.tight_layout()
+        #plt.show()

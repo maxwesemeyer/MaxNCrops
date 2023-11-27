@@ -13,7 +13,7 @@ count_pixel_per_block = agg_length ** 2
 tolerance = 10
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
-rasterize = False
+rasterize = True
 
 # state here the column names in the Shapefile
 crop_type_column = 'ID_KTYP_2'
@@ -36,6 +36,8 @@ out_path = "output_" + str(agg_length) + '_' + str(tolerance)
 # crop dictionary, croptype name as key, croptype integer id as value
 crop_names_dict = {'no_data': 0, 'maize': 1, 'winter_cereals': 2, 'beets': 3, 'rapeseed': 4, 'potato': 5,
                    'spring_cereals': 6, 'legumes': 12, 'arable_grass': 13, 'sunflowers': 60, 'unknown': 80}
+crop_names_dict_reversed = {value: key for key, value in crop_names_dict.items()}
+
 # Crop rotation rules
 # not the same crop as last year, except when the farmer didn't care
 # if legumes are assigned we don't change that
