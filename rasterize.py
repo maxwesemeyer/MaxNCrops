@@ -12,7 +12,7 @@ def create_reference_raster(gpd_frame, reference_gt):
     # this way the extent becomes divisible by 100
     range_y = ceil((bounds[2] - bounds[0]) / 1000) * 100
     range_x = ceil((bounds[3] - bounds[1]) / 1000) * 100
-    arr = np.random.randint(5, size=(range_x, range_y)).astype('int8')
+    arr = np.random.randint(5, size=(range_x, range_y)).astype('int16')
 
     transform = from_origin(bounds[0], bounds[3], resolution, resolution)
     new_dataset = rasterio.open('' + temp_path + '/' + 'reference_raster.tif', 'w', driver='GTiff',

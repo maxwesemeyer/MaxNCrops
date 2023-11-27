@@ -263,6 +263,7 @@ def run_optimization_seq():
                     # the cereal constraint needs the entire sequence as input
                     max_seq_x_RotCnstr(model, vals, crop, i, x=crop_names_dict['winter_cereals'])
                     for year in range(n_years):
+                        # PROBLEM field :  ? 307.0: [1, 60, 60, 2, 4, 2, 2] - > [60, 1, 2, 2, 60, 2, 4]
                         # CropRotViolation_dict[i][4]  == sunflowers
                         # CropRotViolation_dict[i][3]  == legumes
                         # no sunflowers after sunflowers
@@ -273,6 +274,8 @@ def run_optimization_seq():
                             # we enforce this constraint only it was respected in the initial solution on that field
                             no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                               x=crop_names_dict['legumes'], y=crop_names_dict['legumes'])
+                        #else:
+                        #    print('ignoring legume constraint')
                         # no sunflowers(x) after legumes(y)
                         no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                               x=crop_names_dict['sunflowers'], y=crop_names_dict['legumes'])
