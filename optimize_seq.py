@@ -14,11 +14,6 @@ from CropRotRules import *
 
 
 def run_optimization_seq():
-    # TODO add if statements in callback to avoid infeasibility
-    # TODO do we really need to reproduce the entire crop rotation
-    # maize beets sunflowers not before rapeseed
-    # no beets after rapeseed
-
     if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
         os.makedirs(temp_path)
@@ -267,8 +262,7 @@ def run_optimization_seq():
                         # CropRotViolation_dict[i][4]  == sunflowers
                         # CropRotViolation_dict[i][3]  == legumes
                         # no sunflowers after sunflowers
-                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
-                                              x=crop_names_dict['sunflowers'], y=crop_names_dict['sunflowers'])
+
                         # no legumes after legumes
                         if CropRotViolation_dict[i][3] == 0:
                             # we enforce this constraint only it was respected in the initial solution on that field
@@ -277,14 +271,15 @@ def run_optimization_seq():
                         #else:
                         #    print('ignoring legume constraint')
                         # no sunflowers(x) after legumes(y)
+
                         no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                               x=crop_names_dict['sunflowers'], y=crop_names_dict['legumes'])
-                        # no rapeseed after sunflowers
-                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                        if CropRotViolation_dict[i][4] == 0:
+                            # no rapeseed after sunflowers
+                            no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                               x=crop_names_dict['rapeseed'], y=crop_names_dict['sunflowers'])
-
-                        # no sunflowers after rapeseed
-                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                            # no sunflowers after rapeseed
+                            no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                               x=crop_names_dict['sunflowers'], y=crop_names_dict['rapeseed'])
                         # no beets after rapeseed
                         no_x_after_y_RotCnstr(model, vals, year, crop, i,
@@ -302,10 +297,14 @@ def run_optimization_seq():
 
                         # max return time for rapeseed = 3 years; beets and potato = 4
                         # max return time of 3 means  this is ok: [1, 0, 0, 1, 0, 0, 1]
-                        max_return_t_for_x(model, vals, year, crop, i, t=3, x=crop_names_dict['rapeseed'])
-                        max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['potato'])
-                        max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['beets'])
-                        max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['sunflowers'])
+                        if CropRotViolation_dict[i][0] == 0:
+                            max_return_t_for_x(model, vals, year, crop, i, t=3, x=crop_names_dict['rapeseed'])
+                        if CropRotViolation_dict[i][1] == 0:
+                            max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['potato'])
+                        if CropRotViolation_dict[i][2] == 0:
+                            max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['beets'])
+                        if CropRotViolation_dict[i][4] == 0:
+                            max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['sunflowers'])
 
     ####################################################################################################################
     # default is minimize
