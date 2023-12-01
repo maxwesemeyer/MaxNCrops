@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import rasterio.mask
 
 from __functions import *
@@ -41,10 +43,6 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
 
     field_id_arr_1d = field_id_arr.flatten()
     field_id_arr_1d[np.where(field_id_arr_1d == nd_value)] = 0
-    size_of_test_data = field_id_arr_1d.shape[0]
-    len_raster = sqrt(size_of_test_data)
-    num_block_y = int(len_raster / agg_length)
-    num_blocks = int(num_block_y ** 2)
 
     #########################################################################
     if not os.path.isfile('./' + temp_path + '/' + 'shares_iacs.csv'):
@@ -166,28 +164,31 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     ####################################################################################################################
     # creates a dictionary which states which indices of a one-dimensional array belong to a certain block (landscape)
     count_pixel_per_block = agg_length ** 2
+    num_block_col = int(field_id_arr.shape[0] / agg_length)
+    num_block_row = int(field_id_arr.shape[1] / agg_length)
+    num_blocks_total = int(num_block_row * num_block_col)
+
     if not os.path.isfile('./' + temp_path + '/' + 'spatial_aggregation_dict.pkl'):
         if verbatim:
-            print(num_blocks)
+            print(num_blocks_total)
         agg_dicts = []
         block_counter = 0
-        for row in range(num_block_y):
-            if verbatim:
-                print(row, num_block_y)
-            for i in range(0, agg_length * num_block_y, agg_length):
-                if block_counter == num_blocks:
+        for block in range(num_blocks_total):
+
+            for i in range(0, agg_length * num_block_row, agg_length):
+                if block_counter == num_blocks_total:
                     break
                 indices_list = []
                 for a in range(agg_length):
 
-                    if block_counter >= num_block_y:
-                        start = i + (a * agg_length) * num_block_y + ((count_pixel_per_block * num_block_y) * row)
-                        end = (i + agg_length) + (a * agg_length) * num_block_y + (
-                                    (count_pixel_per_block * num_block_y) * row)
-                    elif block_counter < num_block_y:
+                    if block_counter >= num_block_row:
+                        start = i + (a * agg_length) * num_block_row + ((count_pixel_per_block * num_block_row) * block)
+                        end = (i + agg_length) + (a * agg_length) * num_block_row + (
+                                (count_pixel_per_block * num_block_row) * block)
+                    elif block_counter < num_block_row:
                         # for the first blocks
-                        start = i + (a * agg_length) * num_block_y
-                        end = (i + agg_length) + (a * agg_length) * num_block_y
+                        start = i + (a * agg_length) * num_block_row
+                        end = (i + agg_length) + (a * agg_length) * num_block_row
 
                     indices = list(range(start, end))
                     indices_list.append(indices)
@@ -196,7 +197,8 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
                 block_counter += 1
         del block_counter
         # 10x10 blocks
-        spatial_aggregration_dictionary = dict(zip(list(range(num_blocks)), agg_dicts))
+        spatial_aggregration_dictionary = dict(zip(list(range(num_blocks_total)), agg_dicts))
+
         with open('./' + temp_path + '/' + 'spatial_aggregation_dict.pkl', 'wb') as f:
             pickle.dump(spatial_aggregration_dictionary, f)
         del indices_list, agg_dicts
@@ -240,11 +242,10 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
     # block id: [share of fieldid1 in this block, share of fieldid2 in this block,
     # share of fieldid3 in this block, (=number of decision units)...]
     if not os.path.isfile('./' + temp_path + '/' + 'block_dict.pkl'):
-
         out_shares = []
-        for block_i in range(num_blocks):
+        for block_i in range(num_blocks_total):
             if verbatim:
-                print(block_i, 'of', num_blocks)
+                print(block_i, 'of', num_blocks_total)
             # 10x10 m Pixels -> have to multiply by 10*10 to convert to square meters
             ids = field_id_arr_1d[spatial_aggregration_dictionary[block_i]]
             collect = collections.Counter(ids)
@@ -257,11 +258,11 @@ def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
                 else:
                     block_values_list.append(0)
             out_shares.append(csr_matrix(block_values_list))
-        block_dict = dict(zip(list(range(num_blocks)), out_shares))
+        block_dict = dict(zip(list(range(num_blocks_total)), out_shares))
         del spatial_aggregration_dictionary, out_shares
 
         with open('./' + temp_path + '/' + 'block_dict.pkl', 'wb') as f:
             pickle.dump(block_dict, f)
 
-    return field_id_arr, farmid_arr, sparse_idx, unique_crops, unique_field_ids, iacs_gp, unique_farms, num_blocks, \
+    return field_id_arr, farmid_arr, sparse_idx, unique_crops, unique_field_ids, iacs_gp, unique_farms, num_blocks_total, \
            start_vals

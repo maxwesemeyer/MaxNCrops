@@ -14,6 +14,7 @@ from CropRotRules import *
 
 
 def run_optimization_seq():
+    # TODO does the no data class change position?
     if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
         os.makedirs(temp_path)

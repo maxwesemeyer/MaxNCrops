@@ -100,7 +100,6 @@ def analyse_solution_seq():
 def analyse_solution():
     init = gdal.Open('./' + temp_path + '/' + 'IDKTYP.tif').ReadAsArray()
     opt = gdal.Open('./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
-
     a, img_init_ct = get_entropy(init, agg_length, return_type='count')
     a, img_opt_ct = get_entropy(opt, agg_length, return_type='count')
 

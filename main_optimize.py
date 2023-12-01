@@ -84,7 +84,14 @@ def run_optimization():
 
             m.addConstr(tempvars['tempvar_' + crop] == gp.quicksum(
                 [vars[crop][id_] * block_dict[i][0, id_] for id_ in indices_block_i]))
-            # if var sum > 1 helper should be one else 0
+            # EXAMPLE:
+            # tempvar = 5 ; b = 10
+            # 5 >= 10 + 0.1 - 1e5 -> helper must be 0
+            # 5 <= 10 + 0.1 + 1e5 / 0 -> helper can be 1 or 0
+            # tempvar = 20 ; b = 10
+            # 20 >= 10 + 0.1 - 0 -> helper can be 0 or 1
+            # 20 <= 10 + 0.1 + 100000 -> helper must be 1
+
             m.addConstr(tempvars['tempvar_' + crop] >= b + small_number - M * (1 - vars['helper_' + crop][i]))
             m.addConstr(tempvars['tempvar_' + crop] <= b + M * vars['helper_' + crop][i])
 
@@ -156,19 +163,24 @@ def run_optimization():
     ####################################################################################################################
     # default is minimize
     m.setObjective(obj, GRB.MAXIMIZE)
-    # in case the model is not feasible try this:
-    if m_infeas:
-        iis = m.computeIIS()
-        m.write('my_iis.ilp')
 
+    m._vars = vars
     #m.write('maxent_lp.lp')
     m.optimize()
 
+    if m.status == gp.GRB.Status.INFEASIBLE:
+        # in case the model is not feasible
+        # it will generate a "my_iis.ilp" file
+        # The Irreducible Inconsistent Subsystem (iis) helps to understand why a model is infeasible
+        # this can easily happen when farmers the crop rotation rules are too strict (because farmers violated them)
+        iis = m.computeIIS()
+        m.write('my_iis.ilp')
     ####################################################################################################################
     # extract the binary solution for each crop from the model m
     out_imgs = []
     for crop in unique_crops:
-        sol = m.getAttr("X", vars["{0}".format(str(crop))]).values()
+        #sol = np.array(m.getAttr("X", vars["{0}".format(str(crop))]).values()[0])
+        sol = np.array(list(m.getAttr("X", vars["{0}".format(str(crop))]).values()))
         out_imgs.append(sol)
 
     fids_list = []
@@ -189,7 +201,7 @@ def run_optimization():
     write_array_disk_universal(np.expand_dims(field_id_arr, axis=0), './' + temp_path + '/' + 'reference_raster.tif', outPath='./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
     ####################################################################################################################
-    analyse_solution(tolerance=tolerance)
+    analyse_solution()
     get_change_map()
     diss_init = iacs_gp.dissolve(by=[crop_type_column], as_index=False)
     diss_init['area_init'] = diss_init.area * 0.0001
