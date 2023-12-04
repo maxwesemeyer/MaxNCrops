@@ -142,8 +142,9 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
 
     # Aggregate crop types to coarser classes
     # TODO hard coded crop classes; only needed when working with ID_KTYP_2
-    historic_croptypes_array[np.where((historic_croptypes_array==9) | (historic_croptypes_array==10) | (historic_croptypes_array==7) )] = 2
+    historic_croptypes_array[np.where((historic_croptypes_array==9) | (historic_croptypes_array==10))] = 2
     historic_croptypes_array[np.where((historic_croptypes_array==14))] = 12
+    historic_croptypes_array[np.where((historic_croptypes_array==7))] = 6
 
     field_id_array_rav = field_id_array.ravel()
 

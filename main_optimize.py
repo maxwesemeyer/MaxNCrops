@@ -56,6 +56,14 @@ def run_optimization():
                 print('setting start', crop)
             vars["{0}".format(crop)].Start = start_vals[i-1]
 
+    #crop_translator = dict(zip(crop_names_dict_reversed.keys(), range(len(crop_names_dict_reversed.keys()))))
+    #print('translator', crop_translator)
+    for i, row in iacs_gp.iterrows():
+        print('iterating i: ', i, row)
+        if row[farm_id_column] not in selected_farm_ids:
+            print('adding forced constraint', i)
+            m.addConstr(vars["{0}".format(row[crop_type_column])][i+1] == 1)
+
     # The helper will be used as variable that is 1 if a crop type exists in a landscape and else is 0
     for crop in unique_crops:
         crop = str(crop)
@@ -75,14 +83,21 @@ def run_optimization():
         tempvars = {}
 
         indices_block_i = block_dict[i].indices
+        block_empty = False
+        if len(indices_block_i) <= 1 and indices_block_i[0] == 0:
+            print('continuing')
+            block_empty = True
+
         for i_crop, crop in enumerate(unique_crops):
             crop = str(crop)
-
+            if block_empty:
+                m.addConstr(vars['helper_' + crop][i] == 0)
+                continue
             # Tempvar = Sum per block, which is the area of a crop per block; This could be used as input for an
             # Information Entropy function
-            tempvars["{0}".format('tempvar_' + crop)] = m.addVar(vtype=GRB.INTEGER, lb=0, ub=count_pixel_per_block)
+            tempvars["{0}".format('tempvar_' + crop + str(i))] = m.addVar(vtype=GRB.INTEGER, lb=0, ub=count_pixel_per_block)
 
-            m.addConstr(tempvars['tempvar_' + crop] == gp.quicksum(
+            m.addConstr(tempvars['tempvar_' + crop + str(i)] == gp.quicksum(
                 [vars[crop][id_] * block_dict[i][0, id_] for id_ in indices_block_i]))
             # EXAMPLE:
             # tempvar = 5 ; b = 10
@@ -92,8 +107,8 @@ def run_optimization():
             # 20 >= 10 + 0.1 - 0 -> helper can be 0 or 1
             # 20 <= 10 + 0.1 + 100000 -> helper must be 1
 
-            m.addConstr(tempvars['tempvar_' + crop] >= b + small_number - M * (1 - vars['helper_' + crop][i]))
-            m.addConstr(tempvars['tempvar_' + crop] <= b + M * vars['helper_' + crop][i])
+            m.addConstr(tempvars['tempvar_' + crop + str(i)] >= b + small_number - M * (1 - vars['helper_' + crop][i]))
+            m.addConstr(tempvars['tempvar_' + crop + str(i)] <= b + M * vars['helper_' + crop][i])
 
     ####################################################################################################################
     # Objective function; We maximize the sum of helper variables for each block (landscape),
@@ -148,7 +163,6 @@ def run_optimization():
                 try:
                     thrs = (shares_croptypes.loc[(shares_croptypes[crop_type_column] == crop) & (
                             shares_croptypes[farm_id_column] == farm), 'area_m2'].values[0])
-
                 except:
                     # This happens when a farm does not cultivate a crop
                     thrs = 0

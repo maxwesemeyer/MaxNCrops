@@ -77,11 +77,19 @@ def run_optimization_seq():
         crop = str(crop)
         vars["{0}".format(crop)] = m.addMVar((len(unique_field_ids), n_years), vtype=GRB.BINARY, name=crop)
 
+    for i, row in iacs_gp.iterrows():
+        print('iterating i: ', i, row)
+        if row[farm_id_column] not in selected_farm_ids:
+            for year in range(n_years):
+                print('adding forced constraint', i)
+                crop_type_column_yr = 'crp_yr_' + str(year)
+                # setting those farms that are not selected as static (same values as in historic crop types)
+                m.addConstr(vars["{0}".format(row[crop_type_column_yr])][i+1, year] == 1)
+
     # The helper will be used as variable that is 1 if a crop type exists in a landscape and else is 0
     for crop in unique_crops:
         crop = str(crop)
         vars["{0}".format('helper_' + crop)] = m.addMVar((num_blocks, n_years), vtype=GRB.BINARY, name='helper_' + crop)
-
     ####################################################################################################################
     # https://math.stackexchange.com/questions/2500415/how-to-write-if-else-statement-in-linear-programming
     # big M constraints to model if/else
@@ -92,14 +100,20 @@ def run_optimization_seq():
 
     for i in range(num_blocks):
         if verbatim:
-            print(i, '/', num_blocks, 'adding if else constraints')
+            print(i, '/', num_blocks, 'adding landscape-level constraints')
         tempvars = {}
 
         indices_block_i = block_dict[i].indices
-        for i_crop, crop in enumerate(unique_crops):
-            for year in range(n_years):
-                crop = str(crop)
+        block_empty = False
+        if len(indices_block_i) <= 1 and indices_block_i[0] == 0:
+            block_empty = True
 
+        for i_crop, crop in enumerate(unique_crops):
+            crop = str(crop)
+            if block_empty:
+                m.addConstr(gp.quicksum([vars['helper_' + crop][i, year] for year in range(n_years)]) == 0)
+                continue
+            for year in range(n_years):
                 # Tempvar = Sum per block, which is the area of a crop per block; This could be used as input for an
                 # Information Entropy function
                 tempvars["{0}".format('tempvar_' + crop + str(year))] = m.addVar(vtype=GRB.INTEGER, lb=0, ub=count_pixel_per_block)
@@ -126,7 +140,7 @@ def run_optimization_seq():
     m.addConstr(vars[str(0)][0, :].sum() == n_years, 'nodata_fixed')
     for i, id in enumerate(unique_field_ids):
         if verbatim:
-            print(i, ' of ', len(unique_field_ids), 'multiple constraints')
+            print(i, ' of ', len(unique_field_ids), 'field-level constraints')
         if i == 0:
             if verbatim:
                 print('skipping')
@@ -161,7 +175,7 @@ def run_optimization_seq():
     if diversity_type == 'attainable':
         for ct, farm in enumerate(unique_farms):
             if verbatim:
-                print(ct, 'of', len(unique_farms), 'crop proportion per farm constraints')
+                print(ct, 'of', len(unique_farms), 'adding farm-level constraints')
             if farm == 0 or farm == nd_value:
                 if verbatim:
                     print('skipping farm', farm)
@@ -193,7 +207,6 @@ def run_optimization_seq():
                                 name='acreage_' + str(crop) + '_' + str(farm) + '_' + str(year) + '_2' )
 
     ####################################################################################################################
-
 
     def max_seq_x_RotCnstr(model_, vals_, crop_, i_, x):
         # Currently works only for x == maize or x == winter cereals
@@ -234,7 +247,7 @@ def run_optimization_seq():
                                   model_._vars[str(x)][i_, year_ + 1].item() <= 1)
 
 
-    def max_return_t_for_x(model_, vals_, year_, crop_, i_, t, x):
+    def min_return_t_for_x(model_, vals_, year_, crop_, i_, t, x):
         # we do t-1 because then setting t is then more intuitive. Setting t = 2 means that a crop can be grown every
         # second year [1, 0, 1]
         t = t -1
@@ -256,6 +269,7 @@ def run_optimization_seq():
             for i_crop, crop in enumerate(unique_crops):
                 # implementing the sugar beet constraint first
                 for i, id in enumerate(unique_field_ids):
+
                     # the cereal constraint needs the entire sequence as input
                     max_seq_x_RotCnstr(model, vals, crop, i, x=crop_names_dict['winter_cereals'])
                     for year in range(n_years):
@@ -282,30 +296,31 @@ def run_optimization_seq():
                             # no sunflowers after rapeseed
                             no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                               x=crop_names_dict['sunflowers'], y=crop_names_dict['rapeseed'])
-                        # no beets after rapeseed
-                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
-                                              x=crop_names_dict['beets'], y=crop_names_dict['rapeseed'])
 
-                        # no rapeseed after maize
-                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
-                                              x=crop_names_dict['rapeseed'], y=crop_names_dict['maize'])
-                        # no rapeseed after beets
-                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
-                                              x=crop_names_dict['rapeseed'], y=crop_names_dict['beets'])
-                        # no legumes after rapeseed
-                        no_x_after_y_RotCnstr(model, vals, year, crop, i,
-                                              x=crop_names_dict['legumes'], y=crop_names_dict['rapeseed'])
+                        if CropRotViolation_dict[i][0] == 0 and CropRotViolation_dict[i][4] == 0:
+                            # no rapeseed after maize
+                            no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                                  x=crop_names_dict['rapeseed'], y=crop_names_dict['maize'])
+                            # no rapeseed after beets
+                            no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                                  x=crop_names_dict['rapeseed'], y=crop_names_dict['beets'])
+                            # no beets after rapeseed
+                            no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                                  x=crop_names_dict['beets'], y=crop_names_dict['rapeseed'])
+                            # no legumes after rapeseed
+                            no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                                  x=crop_names_dict['legumes'], y=crop_names_dict['rapeseed'])
 
                         # max return time for rapeseed = 3 years; beets and potato = 4
                         # max return time of 3 means  this is ok: [1, 0, 0, 1, 0, 0, 1]
                         if CropRotViolation_dict[i][0] == 0:
-                            max_return_t_for_x(model, vals, year, crop, i, t=3, x=crop_names_dict['rapeseed'])
+                            min_return_t_for_x(model, vals, year, crop, i, t=3, x=crop_names_dict['rapeseed'])
                         if CropRotViolation_dict[i][1] == 0:
-                            max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['potato'])
+                            min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['potato'])
                         if CropRotViolation_dict[i][2] == 0:
-                            max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['beets'])
-                        if CropRotViolation_dict[i][4] == 0:
-                            max_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['sunflowers'])
+                            min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['beets'])
+                        if CropRotViolation_dict[i][5] == 0:
+                            min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['sunflowers'])
 
     ####################################################################################################################
     # default is minimize
