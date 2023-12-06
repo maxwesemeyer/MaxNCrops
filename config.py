@@ -37,10 +37,5 @@ out_path = "output_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_
 crop_names_dict = {'no_data': 0, 'maize': 1, 'winter_cereals': 2, 'beets': 3, 'rapeseed': 4, 'potato': 5,
                    'spring_cereals': 6, 'legumes': 12, 'arable_grass': 13, 'sunflowers': 60, 'unknown': 80}
 crop_names_dict_reversed = {value: key for key, value in crop_names_dict.items()}
-
-# Crop rotation rules
-# not the same crop as last year, except when the farmer didn't care
-# if legumes are assigned we don't change that
-# cultivation breaks for potatos, beets and rapeseed (rape =4; potato = 5, beets = 3)
-
+# here you can select all farms of which the sequences will be optimized;
 selected_farm_ids = [2807, 2811]

@@ -2,15 +2,25 @@ from __functions import *
 import matplotlib.pyplot as plt
 
 
-def analyse_solution_seq(relevant_fields_list):
+def analyse_solution_seq():
     rst = rasterio.open('' + temp_path + '/' + 'reference_raster.tif')
     opt = gdal.Open('./' + out_path + '/' + 'maxent_croptypes_' + str(tolerance) + '.tif').ReadAsArray()
-    field_id_raster = gdal.Open('' + temp_path + '/' + 'Field_ID.tif').ReadAsArray()
-    relevant_field_mask = np.isin(field_id_raster, relevant_fields_list)
-    np.expand_dims(relevant_field_mask, axis=0)
-    mask = np.where(opt > 0, True, False)
     n_years = opt.shape[0]
-    relevant_field_mask = np.tile(relevant_field_mask, reps=(n_years, 1, 1))
+    ####################################################################################################################
+    a, agr_area = get_entropy(opt, agg_length, return_type='area')
+    write_array_disk_universal(np.expand_dims(agr_area, axis=0), './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + temp_path + '/' + 'reference_landscape',
+                               dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
+                               adapted_pixel_size=agg_length)
+
+    iacs_orig = gpd.read_file('' + out_path + '/' + 'iacs_opt.shp')
+    selected_rows = iacs_orig[iacs_orig[farm_id_column].isin(selected_farm_ids)].copy().dissolve()
+    with rasterio.open('./' + temp_path + '/' + 'reference_landscape.tif') as src:
+        # Create a mask for the geometries within the bounds of the raster
+        mask = geometry_mask(selected_rows.geometry, out_shape=src.shape, transform=src.transform, invert=False,
+                             all_touched=True)
+
+    mask_landscapes = np.tile(mask, reps=(n_years, 1, 1))
     #####################################################
     meta = rst.meta.copy()
     meta.update(compress='lzw')
@@ -26,10 +36,9 @@ def analyse_solution_seq(relevant_fields_list):
             out.write_band(year+1, burned)
     init = gdal.Open('./' + out_path + '/' + 'init_crop_allocation.tif').ReadAsArray()
     init[np.where((init == 255) | (init == 99), True, False)] = 0
+    mask = np.where(opt > 0, True, False)
     init[~mask] = 0
 
-    init[~relevant_field_mask] = 0
-    opt[~relevant_field_mask] = 0
     print('UNIQUE INIT: ', np.unique(init), 'UNIQUE OPT: ', np.unique(opt))
     #print('check the number of pixels: ', np.where(init > 0, True, False).sum(), np.where(opt > 0, True, False).sum())
     #####################################################
@@ -58,9 +67,20 @@ def analyse_solution_seq(relevant_fields_list):
         agr_area_list.append(agr_area)
 
     img_init = np.stack(img_ct_init_list, axis=0)
+    img_init = img_init.astype(float)
+    img_init[mask_landscapes] = np.nan
+
     img_opt = np.stack(img_ct_opt_list, axis=0)
+    img_opt = img_opt.astype(float)
+    img_opt[mask_landscapes] = np.nan
+
     img_entr_init = np.stack(img_entr_init_list, axis=0)
+    img_entr_init = img_entr_init.astype(float)
+    img_entr_init[mask_landscapes] = np.nan
+
     img_entr_opt = np.stack(img_entr_opt_list, axis=0)
+    img_entr_opt = img_entr_opt.astype(float)
+    img_entr_opt[mask_landscapes] = np.nan
     agr_area_repeated = np.stack(agr_area_list, axis=0)
 
     write_array_disk_universal(img_init, './' + temp_path + '/' + 'reference_raster.tif',
@@ -104,20 +124,35 @@ def analyse_solution_seq(relevant_fields_list):
               img_nan_init.flatten())) * 100)
 
 
-def analyse_solution(relevant_fields_list):
+def analyse_solution():
     init = gdal.Open('./' + temp_path + '/' + 'IDKTYP.tif').ReadAsArray()
     opt = gdal.Open('./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
+    ####################################################################################################################
+    a, agr_area = get_entropy(opt, agg_length, return_type='area')
+    write_array_disk_universal(np.expand_dims(agr_area, axis=0), './' + temp_path + '/' + 'reference_raster.tif',
+                               outPath='./' + temp_path + '/' + 'reference_landscape',
+                               dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
+                               adapted_pixel_size=agg_length)
 
-    field_id_raster = gdal.Open('' + temp_path + '/' + 'Field_ID.tif').ReadAsArray()
-    relevant_field_mask = np.isin(field_id_raster, relevant_fields_list)
-    opt[~relevant_field_mask] = 0
-    init[~relevant_field_mask] = 0
+    iacs_orig = gpd.read_file('' + out_path + '/' + 'iacs_opt.shp')
+    selected_rows = iacs_orig[iacs_orig[farm_id_column].isin(selected_farm_ids)].copy().dissolve()
+    with rasterio.open('./' + temp_path + '/' + 'reference_landscape.tif') as src:
+        # Create a mask for the geometries within the bounds of the raster
+        mask = geometry_mask(selected_rows.geometry, out_shape=src.shape, transform=src.transform, invert=False, all_touched=True)
+
+    ####################################################################################################################
     a, img_init_ct = get_entropy(init, agg_length, return_type='count')
+    img_init_ct = img_init_ct.astype(float)
+    img_init_ct[mask] = np.nan
     a, img_opt_ct = get_entropy(opt, agg_length, return_type='count')
-
+    img_opt_ct = img_opt_ct.astype(float)
+    img_opt_ct[mask] = np.nan
     a, img_entr_init = get_entropy(init, agg_length, return_type='Shannon diversity')
+    img_entr_init = img_entr_init.astype(float)
+    img_entr_init[mask] = np.nan
     a, img_entr_opt = get_entropy(opt, agg_length, return_type='Shannon diversity')
-
+    img_entr_opt = img_entr_opt.astype(float)
+    img_entr_opt[mask] = np.nan
     a, agr_area = get_entropy(opt, agg_length, return_type='area')
 
     write_array_disk_universal(np.expand_dims(img_init_ct, axis=0), './' + temp_path + '/' + 'reference_raster.tif',

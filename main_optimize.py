@@ -139,22 +139,26 @@ def run_optimization():
     m.addConstr(vars[str(0)][0] == 1, 'nodata_fixed')
 
     for i, id in enumerate(unique_field_ids):
-        if verbatim:
-            print(i+1, ' of ', len(unique_field_ids), 'taboo constraints')
         if i == 0:
+            continue
+        selected_row = iacs_gp[iacs_gp['field_id'] == id]
+        if selected_row[farm_id_column].iloc[0] in selected_farm_ids:
             if verbatim:
-                print('skipping')
-        else:
-            # this constraint ensures that the nodata class cannot be applied to agricultural parcels
-            m.addConstr(vars[str(0)][i] == 0, 'nodata_fixed_2_' + str(i))
-            try:
-                taboo_crops = taboo_croptypes_dict[id]
-                for crop in unique_crops:
-                    if crop in taboo_crops:
-                        # this constraint ensures that the field specific taboo crop cannot be applied to the field
-                        m.addConstr(vars[str(crop)][i] == 0, 'taboo_crop_' + str(crop) + '_' + str(id))
-            except:
-                None
+                print(i+1, ' of ', len(unique_field_ids), 'taboo constraints')
+            if i == 0:
+                if verbatim:
+                    print('skipping')
+            else:
+                # this constraint ensures that the nodata class cannot be applied to agricultural parcels
+                m.addConstr(vars[str(0)][i] == 0, 'nodata_fixed_2_' + str(i))
+                try:
+                    taboo_crops = taboo_croptypes_dict[id]
+                    for crop in unique_crops:
+                        if crop in taboo_crops:
+                            # this constraint ensures that the field specific taboo crop cannot be applied to the field
+                            m.addConstr(vars[str(crop)][i] == 0, 'taboo_crop_' + str(crop) + '_' + str(id))
+                except:
+                    None
 
     del taboo_croptypes_dict
 
@@ -164,30 +168,34 @@ def run_optimization():
     # This constraint is only enforced if diversity_type = 'attainable'
     if diversity_type == 'attainable':
         for ct, farm in enumerate(unique_farms):
-            if verbatim:
-                print(ct+1, 'of', len(unique_farms), 'crop composition per farm constraints')
-            if farm == 0 or farm == nd_value:
-                if verbatim:
-                    print('skipping farm', farm)
+            if i == 0:
                 continue
-            indices_farm_i = farm_field_dict[farm].indices
-            for i_crop, crop in enumerate(unique_crops):
-                if crop == 0:
+            selected_row = iacs_gp[iacs_gp['field_id'] == id]
+            if selected_row[farm_id_column].iloc[0] in selected_farm_ids:
+                if verbatim:
+                    print(ct+1, 'of', len(unique_farms), 'crop composition per farm constraints')
+                if farm == 0 or farm == nd_value:
+                    if verbatim:
+                        print('skipping farm', farm)
                     continue
-                # try to find the farm in the shares_croptypes dataframe if not possible set thrs to 0
-                try:
-                    thrs = (shares_croptypes.loc[(shares_croptypes[crop_type_column] == crop) & (
-                            shares_croptypes[farm_id_column] == farm), 'area_m2'].values[0])
-                except:
-                    # This happens when a farm does not cultivate a crop
-                    thrs = 0
+                indices_farm_i = farm_field_dict[farm].indices
+                for i_crop, crop in enumerate(unique_crops):
+                    if crop == 0:
+                        continue
+                    # try to find the farm in the shares_croptypes dataframe if not possible set thrs to 0
+                    try:
+                        thrs = (shares_croptypes.loc[(shares_croptypes[crop_type_column] == crop) & (
+                                shares_croptypes[farm_id_column] == farm), 'area_m2'].values[0])
+                    except:
+                        # This happens when a farm does not cultivate a crop
+                        thrs = 0
 
-                m.addConstr(gp.quicksum(
-                    [(farm_field_dict[farm][0, id_]) * vars[str(crop)][id_] for id_ in indices_farm_i]) >= thrs - thrs * (
-                                    tolerance / 100), '{0}'.format(crop) + '_' + str(farm) + '_1')
-                m.addConstr(gp.quicksum(
-                    [(farm_field_dict[farm][0, id_]) * vars[str(crop)][id_] for id_ in indices_farm_i]) <= thrs + thrs * (
-                                    tolerance / 100), '{0}'.format(crop) + '_' + str(farm) + '_2' )
+                    m.addConstr(gp.quicksum(
+                        [(farm_field_dict[farm][0, id_]) * vars[str(crop)][id_] for id_ in indices_farm_i]) >= thrs - thrs * (
+                                        tolerance / 100), '{0}'.format(crop) + '_' + str(farm) + '_1')
+                    m.addConstr(gp.quicksum(
+                        [(farm_field_dict[farm][0, id_]) * vars[str(crop)][id_] for id_ in indices_farm_i]) <= thrs + thrs * (
+                                        tolerance / 100), '{0}'.format(crop) + '_' + str(farm) + '_2' )
 
     ####################################################################################################################
     # default is minimize
@@ -230,7 +238,7 @@ def run_optimization():
     write_array_disk_universal(np.expand_dims(field_id_arr, axis=0), './' + temp_path + '/' + 'reference_raster.tif', outPath='./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
     ####################################################################################################################
-    analyse_solution(relevant_fields_list)
+    analyse_solution()
     get_change_map()
     diss_init = iacs_gp.dissolve(by=[crop_type_column], as_index=False)
     diss_init['area_init'] = diss_init.area * 0.0001

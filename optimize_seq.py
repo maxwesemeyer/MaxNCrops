@@ -395,7 +395,7 @@ def run_optimization_seq():
     #rasterize_shp(iacs_gp, out_raster_name='init_crop_allocation', rasterize_columns=['OPT_KTYP_' + str(year) for year in range(n_years)])
 
     ####################################################################################################################
-    analyse_solution_seq(relevant_fields_list)
+    analyse_solution_seq()
     get_change_map_seq(n_years)
     get_shares(iacs_gp, n_years)
 

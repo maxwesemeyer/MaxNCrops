@@ -15,6 +15,7 @@ import glob
 import os.path
 import rasterio
 from rasterio import features
+from rasterio.features import geometry_mask
 from rasterio.transform import from_origin
 from itertools import chain
 from config import *
@@ -234,4 +235,5 @@ def rasterize_shp(iacs, out_raster_name, rasterize_columns):
             burned = features.rasterize(shapes=shapes, fill=0, out=out_arr, transform=out.transform)
             out.write_band(band_idx, burned)
     out.close()
+
 

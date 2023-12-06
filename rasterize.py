@@ -29,7 +29,23 @@ def rasterize_input_shp(crop_type_column=None, farm_id_column=None):
     #path = os.path.dirname(__file__)
     shp_p = glob.glob('./input/*.shp')[0]
     gt_ref = gdal.Open(glob.glob('./input/*.tif')[0]).GetGeoTransform()
-    iacs = gpd.read_file(shp_p)
+    iacs_orig = gpd.read_file(shp_p)
+    # select all rows where iacs[farm_id_column] is in selected_farm_ids; Then buffer around these fields and select all
+    # geometries in original layer that are in the buffer or intersect it
+    selected_rows = iacs_orig[iacs_orig[farm_id_column].isin(selected_farm_ids)].copy()
+
+    # Step 2: Create a buffer around selected geometries and dissolve
+    buffer_distance = (agg_length*10)*1.5
+    buffered_geometries = selected_rows.geometry.buffer(buffer_distance)
+    dissolved_buffer = gpd.GeoDataFrame(geometry=[buffered_geometries.unary_union])
+
+    iacs = iacs_orig[iacs_orig.geometry.intersects(dissolved_buffer.geometry.iloc[0])]
+    #iacs = iacs_copied[iacs_copied.geometry.intersects(buffered_geometries) |
+    #                 iacs_copied.geometry.within(buffered_geometries)]
+
+    if verbatim:
+        print('number of decision units before spatial selection: ', len(iacs_orig.index),
+              'number of decision units after spatial selection: ', len(iacs.index))
     iacs['field_id'] = range(1, len(iacs.index) + 1)
     iacs.to_file('./' + temp_path + '/' + 'iacs.shp')
 
