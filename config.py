@@ -13,7 +13,7 @@ count_pixel_per_block = agg_length ** 2
 tolerance = 10
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
-rasterize = False
+rasterize = True
 
 # state here the column names in the Shapefile
 crop_type_column = 'ID_KTYP_2'
@@ -29,7 +29,7 @@ verbatim = True
 # No data value
 nd_value = -999
 
-# creates the paths according to the parameters stated above so we get a new folder when we change the parameters
+# creates the paths according to the parameters stated above, so we get a new folder when we change the parameters
 temp_path = "temp_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3]
 out_path = "output_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3]
 
@@ -43,4 +43,4 @@ crop_names_dict_reversed = {value: key for key, value in crop_names_dict.items()
 # if legumes are assigned we don't change that
 # cultivation breaks for potatos, beets and rapeseed (rape =4; potato = 5, beets = 3)
 
-selected_farm_ids = [5008]
+selected_farm_ids = [2807, 2811]

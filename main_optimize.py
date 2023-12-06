@@ -55,19 +55,34 @@ def run_optimization():
             if verbatim:
                 print('setting start', crop)
             vars["{0}".format(crop)].Start = start_vals[i-1]
-
-    #crop_translator = dict(zip(crop_names_dict_reversed.keys(), range(len(crop_names_dict_reversed.keys()))))
-    #print('translator', crop_translator)
+    ####################################################################################################################
+    selected_farms_field_ids = []
     for i, row in iacs_gp.iterrows():
-        print('iterating i: ', i, row)
         if row[farm_id_column] not in selected_farm_ids:
-            print('adding forced constraint', i)
             m.addConstr(vars["{0}".format(row[crop_type_column])][i+1] == 1)
+        else:
+            selected_farms_field_ids.append(row['field_id'])
 
     # The helper will be used as variable that is 1 if a crop type exists in a landscape and else is 0
     for crop in unique_crops:
         crop = str(crop)
         vars["{0}".format('helper_' + crop)] = m.addVars(num_blocks, vtype=GRB.BINARY, name='helper_' + crop)
+
+    ####################################################################################################################
+    # select all fields that are in the same blocks as the selected farms
+    # the relevant fields is a list of all field ids that are located within a landscape, where one of the selected farms
+    # has a field
+    relevant_fields_list = []
+    for i in range(num_blocks):
+        indices_block_i = block_dict[i].indices
+        if any(value in selected_farms_field_ids for value in indices_block_i):
+            for value in indices_block_i:
+                if value != 0:
+                    relevant_fields_list.append(value)
+    # keep each field id only once
+    relevant_fields_list = np.unique(relevant_fields_list)
+    if verbatim:
+        print('relevant fields', relevant_fields_list)
 
     ####################################################################################################################
     # https://math.stackexchange.com/questions/2500415/how-to-write-if-else-statement-in-linear-programming
@@ -215,7 +230,7 @@ def run_optimization():
     write_array_disk_universal(np.expand_dims(field_id_arr, axis=0), './' + temp_path + '/' + 'reference_raster.tif', outPath='./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
     ####################################################################################################################
-    analyse_solution()
+    analyse_solution(relevant_fields_list)
     get_change_map()
     diss_init = iacs_gp.dissolve(by=[crop_type_column], as_index=False)
     diss_init['area_init'] = diss_init.area * 0.0001

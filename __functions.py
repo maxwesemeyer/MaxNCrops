@@ -145,6 +145,8 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
     historic_croptypes_array[np.where((historic_croptypes_array==9) | (historic_croptypes_array==10))] = 2
     historic_croptypes_array[np.where((historic_croptypes_array==14))] = 12
     historic_croptypes_array[np.where((historic_croptypes_array==7))] = 6
+    historic_croptypes_array[np.where((historic_croptypes_array==255))] = 0
+    historic_croptypes_array[np.where((historic_croptypes_array==99))] = 0
 
     field_id_array_rav = field_id_array.ravel()
 
@@ -167,12 +169,14 @@ def get_historic_croptypes(field_id_array, historic_croptypes_array, unique_crop
             try:
                 if i == 0:
                     historic_cultivations.append(historic[np.argsort(counts)[0]])
-                # In case of a very small field it is possible that the 0 class has the highest count; In this case the second
-                # highest value is chosen
-
-                elif historic[np.argmax(counts)] == 0:
-                    historic_cultivations.append(historic[np.argsort(counts)[-2]])
                 else:
+                    # TODO changed the function a bit
+                    # In case of a very small field it is possible that the 0 class has the highest count; In this case the second
+                    # highest value is chosen
+
+                    #elif historic[np.argmax(counts)] == 0:
+                    #    historic_cultivations.append(historic[np.argsort(counts)[-2]])
+                    #else:
                     historic_cultivations.append(historic[np.argmax(counts)])
             except:
                 historic_cultivations.append(historic[np.argmax(counts)])
@@ -214,3 +218,20 @@ def longest_sequence(binary_array):
             current_sequence = 0
 
     return max_sequence, max_start_index
+
+
+def rasterize_shp(iacs, out_raster_name, rasterize_columns):
+    rst = rasterio.open('' + temp_path + '/' + 'reference_raster.tif')
+    meta = rst.meta.copy()
+    meta.update(count=len(rasterize_columns), compress='lzw')
+
+    with rasterio.open('./' + out_path + '/' + out_raster_name + '.tif', 'w+', **meta) as out:
+        out.nodata = 0
+        out_arr = out.read(1)
+        for band_idx, column in enumerate(rasterize_columns, start=1):
+            # Create a generator of geom, value pairs for rasterizing
+            shapes = ((geom, value) for geom, value in zip(iacs.geometry, iacs[column]))
+            burned = features.rasterize(shapes=shapes, fill=0, out=out_arr, transform=out.transform)
+            out.write_band(band_idx, burned)
+    out.close()
+

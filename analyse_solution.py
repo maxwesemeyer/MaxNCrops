@@ -2,11 +2,15 @@ from __functions import *
 import matplotlib.pyplot as plt
 
 
-def analyse_solution_seq():
+def analyse_solution_seq(relevant_fields_list):
     rst = rasterio.open('' + temp_path + '/' + 'reference_raster.tif')
     opt = gdal.Open('./' + out_path + '/' + 'maxent_croptypes_' + str(tolerance) + '.tif').ReadAsArray()
+    field_id_raster = gdal.Open('' + temp_path + '/' + 'Field_ID.tif').ReadAsArray()
+    relevant_field_mask = np.isin(field_id_raster, relevant_fields_list)
+    np.expand_dims(relevant_field_mask, axis=0)
     mask = np.where(opt > 0, True, False)
     n_years = opt.shape[0]
+    relevant_field_mask = np.tile(relevant_field_mask, reps=(n_years, 1, 1))
     #####################################################
     meta = rst.meta.copy()
     meta.update(compress='lzw')
@@ -23,6 +27,9 @@ def analyse_solution_seq():
     init = gdal.Open('./' + out_path + '/' + 'init_crop_allocation.tif').ReadAsArray()
     init[np.where((init == 255) | (init == 99), True, False)] = 0
     init[~mask] = 0
+
+    init[~relevant_field_mask] = 0
+    opt[~relevant_field_mask] = 0
     print('UNIQUE INIT: ', np.unique(init), 'UNIQUE OPT: ', np.unique(opt))
     #print('check the number of pixels: ', np.where(init > 0, True, False).sum(), np.where(opt > 0, True, False).sum())
     #####################################################
@@ -97,9 +104,14 @@ def analyse_solution_seq():
               img_nan_init.flatten())) * 100)
 
 
-def analyse_solution():
+def analyse_solution(relevant_fields_list):
     init = gdal.Open('./' + temp_path + '/' + 'IDKTYP.tif').ReadAsArray()
     opt = gdal.Open('./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
+
+    field_id_raster = gdal.Open('' + temp_path + '/' + 'Field_ID.tif').ReadAsArray()
+    relevant_field_mask = np.isin(field_id_raster, relevant_fields_list)
+    opt[~relevant_field_mask] = 0
+    init[~relevant_field_mask] = 0
     a, img_init_ct = get_entropy(init, agg_length, return_type='count')
     a, img_opt_ct = get_entropy(opt, agg_length, return_type='count')
 
