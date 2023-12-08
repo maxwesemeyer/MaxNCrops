@@ -38,4 +38,11 @@ crop_names_dict = {'no_data': 0, 'maize': 1, 'winter_cereals': 2, 'beets': 3, 'r
                    'spring_cereals': 6, 'legumes': 12, 'arable_grass': 13, 'sunflowers': 60, 'unknown': 80}
 crop_names_dict_reversed = {value: key for key, value in crop_names_dict.items()}
 # here you can select all farms of which the sequences will be optimized;
-selected_farm_ids = [2807, 2811]
+import numpy as np
+import pandas as pd
+np.random.seed(13) # 42
+farm_ids_uckermark = np.unique(pd.read_csv('./delete/uckermark_farmids.csv')[farm_id_column])
+selected_farm_ids = np.random.choice(farm_ids_uckermark, size=10, replace=False)
+selected_farm_ids = [5392, 5517, 5462, 5322, 5461] # uckermark
+selected_farm_ids = [1983, 2203, 1836, 1980, 1977] # oder
+print(selected_farm_ids)

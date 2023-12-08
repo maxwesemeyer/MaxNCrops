@@ -168,10 +168,7 @@ def run_optimization():
     # This constraint is only enforced if diversity_type = 'attainable'
     if diversity_type == 'attainable':
         for ct, farm in enumerate(unique_farms):
-            if i == 0:
-                continue
-            selected_row = iacs_gp[iacs_gp['field_id'] == id]
-            if selected_row[farm_id_column].iloc[0] in selected_farm_ids:
+            if farm in selected_farm_ids:
                 if verbatim:
                     print(ct+1, 'of', len(unique_farms), 'crop composition per farm constraints')
                 if farm == 0 or farm == nd_value:
@@ -234,38 +231,15 @@ def run_optimization():
     field_id_arr = field_id_arr.astype(int)
     opt_frame = pd.DataFrame({'field_id': fids_list, 'OPT_KTYP': crop_type_list})
     iacs_gp = iacs_gp.merge(opt_frame, on='field_id')
+    iacs_gp['sel_farm'] = iacs_gp[farm_id_column].apply(lambda val: 1 if val in selected_farm_ids else 0)
+
     iacs_gp.to_file('./' + out_path + '/' + 'iacs_opt.shp')
     write_array_disk_universal(np.expand_dims(field_id_arr, axis=0), './' + temp_path + '/' + 'reference_raster.tif', outPath='./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
     ####################################################################################################################
     analyse_solution()
     get_change_map()
-    diss_init = iacs_gp.dissolve(by=[crop_type_column], as_index=False)
-    diss_init['area_init'] = diss_init.area * 0.0001
-
-    diss_opt = iacs_gp.dissolve(by=['OPT_KTYP'], as_index=False)
-    diss_init['area_opt'] = diss_opt.area * 0.0001
-    # diss_init = diss_init.drop('geometry')
-    diss_init = diss_init[[crop_type_column, 'area_init', 'area_opt']]
-    diss_init.to_csv('' + out_path + '/' + 'shares_bb_iacs.csv')
-
-    diss_init = iacs_gp.dissolve(by=[farm_id_column, crop_type_column], as_index=False).copy()
-    diss_init['area_init'] = diss_init.area * 0.0001
-
-    diss_opt = iacs_gp.dissolve(by=[farm_id_column, 'OPT_KTYP'], as_index=False).copy()
-    diss_opt['area_opt'] = diss_opt.area * 0.0001
-    merged = pd.merge(diss_init, diss_opt, left_on=[farm_id_column, 'ID_KTYP'], right_on=[farm_id_column, 'OPT_KTYP'])
-
-    if diversity_type == 'attainable':
-        # Check if farm crop acreage constraint was violated; There should be zero violations;
-        error = 0
-        for i, row in merged.iterrows():
-            # print(row['area_opt'], row['area_init'])
-            if (row['area_opt'] > row['area_init'] + row['area_init'] * (tolerance/100)) or (
-                    row['area_opt'] < row['area_init'] - row['area_init'] * (tolerance/100)):
-                #print(error)
-                error += 1
-        print('errors: ', error)
+    get_shares(iacs_gp)
 
 
 if __name__ == '__main__':

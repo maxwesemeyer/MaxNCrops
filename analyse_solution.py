@@ -7,7 +7,7 @@ def analyse_solution_seq():
     opt = gdal.Open('./' + out_path + '/' + 'maxent_croptypes_' + str(tolerance) + '.tif').ReadAsArray()
     n_years = opt.shape[0]
     ####################################################################################################################
-    a, agr_area = get_entropy(opt, agg_length, return_type='area')
+    a, agr_area = get_entropy(opt[0, :, :], agg_length, return_type='area')
     write_array_disk_universal(np.expand_dims(agr_area, axis=0), './' + temp_path + '/' + 'reference_raster.tif',
                                outPath='./' + temp_path + '/' + 'reference_landscape',
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
@@ -37,7 +37,7 @@ def analyse_solution_seq():
     init = gdal.Open('./' + out_path + '/' + 'init_crop_allocation.tif').ReadAsArray()
     init[np.where((init == 255) | (init == 99), True, False)] = 0
     mask = np.where(opt > 0, True, False)
-    init[~mask] = 0
+    #init[~mask] = 0
 
     print('UNIQUE INIT: ', np.unique(init), 'UNIQUE OPT: ', np.unique(opt))
     #print('check the number of pixels: ', np.where(init > 0, True, False).sum(), np.where(opt > 0, True, False).sum())
@@ -218,7 +218,7 @@ def get_change_map_seq(n_years):
         iacs_gp.to_file('./' + out_path + '/' + 'iacs_opt.shp')
 
 
-def get_shares(iacs_gp, n_years):
+def get_shares_seq(iacs_gp, n_years):
     # this function calculates the area for each croptype for the entire study area and checks if the area of the
     # optimized allocation is equal to the initial allocation with a tolerance value
 
@@ -250,3 +250,37 @@ def get_shares(iacs_gp, n_years):
                         row['area_opt'] < row['area_init'] - row['area_init'] * (tolerance/100)):
                     error += 1
             print('errors: ', error)
+
+
+def get_shares(iacs_gp):
+    diss_init = iacs_gp.dissolve(by=[crop_type_column], as_index=False)
+    diss_init['area_init'] = diss_init.area * 0.0001
+
+    diss_opt = iacs_gp.dissolve(by=['OPT_KTYP'], as_index=False)
+    diss_opt['area_opt'] = diss_opt.area * 0.0001
+
+    merged = pd.merge(diss_init, diss_opt, left_on=[crop_type_column],
+                      right_on=['OPT_KTYP'])
+
+    merged = merged[[crop_type_column + '_x', 'area_init', 'area_opt']]
+    merged.to_csv('./' + out_path + '/shares_bb_iacs.csv')
+
+    diss_init = iacs_gp.dissolve(by=[farm_id_column, crop_type_column], as_index=False).copy()
+    diss_init['area_init'] = diss_init.area * 0.0001
+
+    diss_opt = iacs_gp.dissolve(by=[farm_id_column, 'OPT_KTYP'], as_index=False).copy()
+    diss_opt['area_opt'] = diss_opt.area * 0.0001
+    merged = pd.merge(diss_init, diss_opt, left_on=[farm_id_column, crop_type_column], right_on=[farm_id_column, 'OPT_KTYP'])
+
+    if diversity_type == 'attainable':
+        # Check if farm crop acreage constraint was violated; There should be zero violations;
+        error = 0
+        for i, row in merged.iterrows():
+
+            # print(row['area_opt'], row['area_init'])
+            if (row['area_opt'] > row['area_init'] + row['area_init'] * (tolerance / 100)) or (
+                    row['area_opt'] < row['area_init'] - row['area_init'] * (tolerance / 100)):
+                error += 1
+
+        print('errors: ', error)
+

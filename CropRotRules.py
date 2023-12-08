@@ -11,7 +11,7 @@ def no_x_after_y_check(vals_, crop_x, crop_y):
     n_years = len(vals_)
     for year_ in range(n_years):
         if year_ <= n_years - 2:
-            if values_x[year_] > 0.5 and values_y[year_ + 1] > 0.5:
+            if values_y[year_] > 0.5 and values_x[year_ + 1] > 0.5:
                 return 1
     return 0
 
@@ -55,7 +55,10 @@ def check_CropRotRules(historic_croptypes_dict):
     legume_minret_violation_list = []
     sunflower_minret_violation_list = []
     sunflower_rp_violation_list = []
+    no_rapeseed_after_maize_list = []
     no_beets_after_rapeseed = []
+    no_legume_after_rapeseed_list = []
+    no_sunflowers_after_legumes_list = []
 
     cereals_longest_seq_list = []
     maize_longest_seq_list = []
@@ -77,10 +80,19 @@ def check_CropRotRules(historic_croptypes_dict):
         else:
             sunflower_rp_violation_list.append(0)
 
+        # no rapeseed after sunflowers and vice versa
+        if no_x_after_y_check(value, crop_x=crop_names_dict['beets'], crop_y=crop_names_dict['rapeseed']) == 1 or \
+                no_x_after_y_check(value, crop_x=crop_names_dict['rapeseed'], crop_y=crop_names_dict['beets']) == 1:
+            no_beets_after_rapeseed.append(1)
+        else:
+            no_beets_after_rapeseed.append(0)
+
+        no_rapeseed_after_maize_list.append(no_x_after_y_check(value, crop_x=crop_names_dict['rapeseed'], crop_y=crop_names_dict['maize']))
+        no_legume_after_rapeseed_list.append(no_x_after_y_check(value, crop_x=crop_names_dict['legumes'], crop_y=crop_names_dict['rapeseed']))
+        no_sunflowers_after_legumes_list.append(no_x_after_y_check(value, crop_x=crop_names_dict['sunflowers'], crop_y=crop_names_dict['legumes']))
         cereals_longest_seq_list.append(longest_seq_x(value, x=crop_names_dict['winter_cereals']))
         maize_longest_seq_list.append(longest_seq_x(value, x=crop_names_dict['maize']))
 
-        no_beets_after_rapeseed.append(no_x_after_y_check(value, crop_x=crop_names_dict['beets'], crop_y=crop_names_dict['rapeseed']))
 
     print(sum(rapeseed_minret_violation_list), 'violations of the rapeseed constraint')
     print(sum(potato_minret_violation_list), 'violations of the potato constraint')
@@ -89,9 +101,13 @@ def check_CropRotRules(historic_croptypes_dict):
     print(sum(sunflower_minret_violation_list), 'violations of the sunflower min return constraint')
     print(sum(sunflower_rp_violation_list), 'violations of the sunflower-rapeseed constraint')
     print(sum(no_beets_after_rapeseed), 'violations of the no_beets_after_rapeseed')
+    print(sum(no_rapeseed_after_maize_list), 'no_rapeseed_after_maize_list')
+    print(sum(no_legume_after_rapeseed_list), 'no_legume_after_rapeseed_list')
+    print(sum(no_sunflowers_after_legumes_list), 'no_sunflowers_after_legumes_list')
 
-    violation_dict = {id_: (val1, val2, val3, val4, val5, val6) for id_, val1, val2, val3, val4, val5, val6 in zip(list(historic_croptypes_dict.keys()), rapeseed_minret_violation_list, potato_minret_violation_list,
-                                                                beet_minret_violation_list, legume_minret_violation_list, sunflower_rp_violation_list, sunflower_minret_violation_list)}
+    violation_dict = {id_: (val1, val2, val3, val4, val5, val6, val7, val8, val9, val10) for id_, val1, val2, val3, val4, val5, val6, val7, val8, val9, val10 in zip(list(historic_croptypes_dict.keys()), rapeseed_minret_violation_list, potato_minret_violation_list,
+                                                                beet_minret_violation_list, legume_minret_violation_list, sunflower_rp_violation_list, sunflower_minret_violation_list,
+                                                                                                                   no_rapeseed_after_maize_list, no_legume_after_rapeseed_list, no_sunflowers_after_legumes_list, no_beets_after_rapeseed)}
     longest_seq_dict = {id_: (val1, val2) for id_, val1, val2 in zip(list(historic_croptypes_dict.keys()),
                                                                      maize_longest_seq_list, cereals_longest_seq_list)}
     print('length of maize list', len(maize_longest_seq_list))
@@ -158,9 +174,10 @@ def crop_rot_figures():
     if not os.path.exists('./figures/'):
         # Create the temp directory if it does not exist
         os.makedirs('./figures/')
-    # Assuming in_path_1 and in_path_2 are your file paths
+
     inital = pd.read_csv('./' + out_path + '/crop_rot_freq_init.csv')
     optimized = pd.read_csv('./' + out_path + '/crop_rot_freq_' + str(tolerance) + '.csv')
+
 
     inital['opt'] = "initial"
     optimized['opt'] = "optimized"

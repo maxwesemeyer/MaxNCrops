@@ -8,8 +8,8 @@ from CropRotRules import *
 # by Maximilian Wesemeyer
 # for questions contact wesemema@hu-berlin.de
 ########################################################################################################################
-# some crop types are hard coded
-########################################################################################################################
+
+
 def run_optimization_seq():
     if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
@@ -46,6 +46,18 @@ def run_optimization_seq():
     # this dictionary contains 1 for each Crop rotation constraint the farmers violated themselves
     CropRotViolation_dict, longest_seq_dict = check_CropRotRules(historic_croptypes_dict)
     crop_rot_freq = get_rotations(historic_croptypes_dict)
+
+    relevant_fields_list = []
+    for i, id in enumerate(unique_field_ids):
+        if i == 0:
+            continue
+        # we skip all fields of farms that are not selected because the rotation on these
+        # fields of these farms are fixed
+        selected_row = iacs_gp[iacs_gp['field_id'] == id]
+        if selected_row[farm_id_column].iloc[0] in selected_farm_ids:
+            relevant_fields_list.append(id)
+    crop_rot_freq = crop_rot_freq[crop_rot_freq['fid'].isin(relevant_fields_list)]
+
     crop_rot_freq.to_csv('./' + out_path + '/crop_rot_freq_init.csv')
     del crop_rot_freq
     print(longest_seq_dict)
@@ -67,7 +79,6 @@ def run_optimization_seq():
         print(len(unique_crops), 'unique crops check all crop types', unique_crops)
 
     for i, crop in enumerate(unique_crops):
-        # TODO add only relevant fields?
         crop = str(crop)
         vars["{0}".format(crop)] = m.addMVar((len(unique_field_ids), n_years), vtype=GRB.BINARY, name='crop_bin_' + crop)
 
@@ -90,20 +101,12 @@ def run_optimization_seq():
     # select all fields that are in the same blocks as the selected farms
     # the relevant fields is a list of all field ids that are located within a landscape, where one of the selected farms
     # has a field
-    relevant_fields_list = []
     relevant_block_list = []
     for i in range(num_blocks):
         indices_block_i = block_dict[i].indices
 
         if any(value in selected_farms_field_ids for value in indices_block_i):
-            for value in indices_block_i:
-                if value != 0:
-                    relevant_fields_list.append(value)
             relevant_block_list.append(i)
-    # keep each field id only once
-    relevant_fields_list = np.unique(relevant_fields_list)
-    if verbatim:
-        print('relevant fields', relevant_fields_list)
 
     ####################################################################################################################
     # https://math.stackexchange.com/questions/2500415/how-to-write-if-else-statement-in-linear-programming
@@ -114,7 +117,7 @@ def run_optimization_seq():
     M = 1e5
 
     for i in range(num_blocks):
-        if verbatim:
+        if verbatim and i % 1000 == 0:
             print(i, '/', num_blocks, 'adding landscape-level constraints')
         tempvars = {}
 
@@ -189,7 +192,7 @@ def run_optimization_seq():
                 except:
                     None
 
-    del historic_croptypes_dict
+    #del historic_croptypes_dict
 
     ####################################################################################################################
     # A constraint for each crop type and each farm using the block_dict_farms
@@ -309,8 +312,8 @@ def run_optimization_seq():
                                 # we enforce this constraint only it was respected in the initial solution on that field
                                 no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                                   x=crop_names_dict['legumes'], y=crop_names_dict['legumes'])
-
-                            no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                            if CropRotViolation_dict[i][8] == 0:
+                                no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                                   x=crop_names_dict['sunflowers'], y=crop_names_dict['legumes'])
                             if CropRotViolation_dict[i][4] == 0:
                                 # no rapeseed after sunflowers
@@ -320,24 +323,31 @@ def run_optimization_seq():
                                 no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                                   x=crop_names_dict['sunflowers'], y=crop_names_dict['rapeseed'])
 
-                            if CropRotViolation_dict[i][0] == 0 and CropRotViolation_dict[i][4] == 0:
-                                # no rapeseed after maize
-                                no_x_after_y_RotCnstr(model, vals, year, crop, i,
-                                                      x=crop_names_dict['rapeseed'], y=crop_names_dict['maize'])
+                            if CropRotViolation_dict[i][9] == 0:
                                 # no rapeseed after beets
                                 no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                                       x=crop_names_dict['rapeseed'], y=crop_names_dict['beets'])
                                 # no beets after rapeseed
                                 no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                                       x=crop_names_dict['beets'], y=crop_names_dict['rapeseed'])
+                            if CropRotViolation_dict[i][7] == 0:
                                 # no legumes after rapeseed
                                 no_x_after_y_RotCnstr(model, vals, year, crop, i,
                                                       x=crop_names_dict['legumes'], y=crop_names_dict['rapeseed'])
+                            if CropRotViolation_dict[i][6] == 0:
+                                # no rapeseed after maize
+                                no_x_after_y_RotCnstr(model, vals, year, crop, i,
+                                                      x=crop_names_dict['rapeseed'], y=crop_names_dict['maize'])
+
 
                             # max return time for rapeseed = 3 years; beets and potato = 4
                             # max return time of 3 means  this is ok: [1, 0, 0, 1, 0, 0, 1]
                             if CropRotViolation_dict[i][0] == 0:
                                 min_return_t_for_x(model, vals, year, crop, i, t=3, x=crop_names_dict['rapeseed'])
+                            else:
+                                # set crop sequence to original sequence
+                                if historic_croptypes_dict[i][year] == crop:
+                                    model.cbLazy(gp.quicksum([model._vars[str(crop)][i, year].item()]) == 1)
                             if CropRotViolation_dict[i][1] == 0:
                                 min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['potato'])
                             if CropRotViolation_dict[i][2] == 0:
@@ -386,25 +396,27 @@ def run_optimization_seq():
         field_id_arr_allyears.append(field_id_arr_copy)
         opt_frame = pd.DataFrame({'field_id': fids_list, 'OPT_KTYP_' + str(year): crop_type_list})
         iacs_gp = iacs_gp.merge(opt_frame, on='field_id')
+
+    iacs_gp['sel_farm'] = iacs_gp[farm_id_column].apply(lambda val: 1 if val in selected_farm_ids else 0)
     iacs_gp.to_file('./' + out_path + '/iacs_opt.shp')
 
     write_array_disk_universal(np.stack(field_id_arr_allyears, axis=0), './' + temp_path + '/reference_raster.tif', outPath='./' + out_path + '/maxent_croptypes_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0)
 
-    #rasterize_shp(iacs_gp, out_raster_name='maxent_croptypes_' + str(tolerance), rasterize_columns=['crp_yr_' + str(year) for year in range(n_years)])
-    #rasterize_shp(iacs_gp, out_raster_name='init_crop_allocation', rasterize_columns=['OPT_KTYP_' + str(year) for year in range(n_years)])
-
     ####################################################################################################################
     analyse_solution_seq()
     get_change_map_seq(n_years)
-    get_shares(iacs_gp, n_years)
+    get_shares_seq(iacs_gp, n_years)
 
     ####################################################################################################################
     # calculate historic_croptypes_dict and check for violations of the rules again
     taboo_croptypes_dict, historic_croptypes_dict = get_historic_croptypes(field_id_array=field_id_arr.copy(), historic_croptypes_array=np.stack(field_id_arr_allyears, axis=0), unique_croptypes=unique_crops)
     CropRotViolation_dict, longest_seq_dict_opt = check_CropRotRules(historic_croptypes_dict)
     crop_rot_freq = get_rotations(historic_croptypes_dict)
+
+    crop_rot_freq = crop_rot_freq[crop_rot_freq['fid'].isin(relevant_fields_list)]
     crop_rot_freq.to_csv('./' + out_path + '/crop_rot_freq_' + str(tolerance) + '.csv')
+    crop_rot_figures()
     for i in range(len(unique_field_ids)):
         if longest_seq_dict_opt[i][1] > longest_seq_dict[i][1]:
             print('error', longest_seq_dict[i], longest_seq_dict_opt[i], i)
