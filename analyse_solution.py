@@ -2,20 +2,21 @@ from __functions import *
 import matplotlib.pyplot as plt
 
 
-def analyse_solution_seq():
+def analyse_solution_seq(landscape_size=agg_length):
     rst = rasterio.open('' + temp_path + '/' + 'reference_raster.tif')
     opt = gdal.Open('./' + out_path + '/' + 'maxent_croptypes_' + str(tolerance) + '.tif').ReadAsArray()
     n_years = opt.shape[0]
+
     ####################################################################################################################
-    a, agr_area = get_entropy(opt[0, :, :], agg_length, return_type='area')
+    a, agr_area = get_entropy(opt[0, :, :], landscape_size, return_type='area')
     write_array_disk_universal(np.expand_dims(agr_area, axis=0), './' + temp_path + '/' + 'reference_raster.tif',
-                               outPath='./' + temp_path + '/' + 'reference_landscape',
+                               outPath='./' + temp_path + '/' + str(landscape_size) + 'reference_landscape',
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
-                               adapted_pixel_size=agg_length)
+                               adapted_pixel_size=landscape_size)
 
     iacs_orig = gpd.read_file('' + out_path + '/' + 'iacs_opt.shp')
     selected_rows = iacs_orig[iacs_orig[farm_id_column].isin(selected_farm_ids)].copy().dissolve()
-    with rasterio.open('./' + temp_path + '/' + 'reference_landscape.tif') as src:
+    with rasterio.open('./' + temp_path + '/' + str(landscape_size) + 'reference_landscape.tif') as src:
         # Create a mask for the geometries within the bounds of the raster
         mask = geometry_mask(selected_rows.geometry, out_shape=src.shape, transform=src.transform, invert=False,
                              all_touched=True)
@@ -51,19 +52,19 @@ def analyse_solution_seq():
 
     for year in range(n_years):
 
-        a, img_init_ct = get_entropy(init[year, :, :], 100, return_type='count')
-        a, img_opt_ct = get_entropy(opt[year, :, :], 100, return_type='count')
+        a, img_init_ct = get_entropy(init[year, :, :], landscape_size, return_type='count')
+        a, img_opt_ct = get_entropy(opt[year, :, :], landscape_size, return_type='count')
 
         img_ct_init_list.append(img_init_ct)
         img_ct_opt_list.append(img_opt_ct)
 
-        a, img_entr_init = get_entropy(init[year, :, :], 100, return_type='Shannon diversity')
-        a, img_entr_opt = get_entropy(opt[year, :, :], 100, return_type='Shannon diversity')
+        a, img_entr_init = get_entropy(init[year, :, :], landscape_size, return_type='Shannon diversity')
+        a, img_entr_opt = get_entropy(opt[year, :, :], landscape_size, return_type='Shannon diversity')
 
         img_entr_init_list.append(img_entr_init)
         img_entr_opt_list.append(img_entr_opt)
 
-        a, agr_area = get_entropy(opt[year, :, :], 100, return_type='area')
+        a, agr_area = get_entropy(opt[year, :, :], landscape_size, return_type='area')
         agr_area_list.append(agr_area)
 
     img_init = np.stack(img_ct_init_list, axis=0)
@@ -84,27 +85,27 @@ def analyse_solution_seq():
     agr_area_repeated = np.stack(agr_area_list, axis=0)
 
     write_array_disk_universal(img_init, './' + temp_path + '/' + 'reference_raster.tif',
-                               outPath='./' + out_path + '/' + 'inital_ct',
+                               outPath='./' + out_path + '/' + str(landscape_size) + 'inital_ct',
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
-                               adapted_pixel_size=100)
+                               adapted_pixel_size=landscape_size)
 
     write_array_disk_universal(img_opt,
                                './' + temp_path + '/' + 'reference_raster.tif',
-                               outPath='./' + out_path + '/' + 'opt_ct_' + str(tolerance),
+                               outPath='./' + out_path + '/' + str(landscape_size) + 'opt_ct_' + str(tolerance),
                                dtype=gdal.GDT_Int32, noDataValue=0, scaler=100, adapt_pixel_size=True,
-                               adapted_pixel_size=100)
+                               adapted_pixel_size=landscape_size)
 
     write_array_disk_universal(img_entr_init,
                                './' + temp_path + '/' + 'reference_raster.tif',
-                               outPath='./' + out_path + '/' + 'initial_entropy',
+                               outPath='./' + out_path + '/' + str(landscape_size) + 'initial_entropy',
                                dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
-                               adapted_pixel_size=100)
+                               adapted_pixel_size=landscape_size)
 
     write_array_disk_universal(img_entr_opt,
                                    './' + temp_path + '/' + 'reference_raster.tif',
-                                   outPath='./' + out_path + '/' + 'opt_entropy_' + str(tolerance),
+                                   outPath='./' + out_path + '/' + str(landscape_size) + 'opt_entropy_' + str(tolerance),
                                    dtype=gdal.GDT_Float32, noDataValue=nd_value, scaler=1, adapt_pixel_size=True,
-                                   adapted_pixel_size=100)
+                                   adapted_pixel_size=landscape_size)
     pd.DataFrame(
         {'entropy_init': img_entr_init.ravel(), 'entropy_opt': img_entr_opt.ravel(), 'initial_ct': img_init.ravel(),
          'opt_ct': img_opt.ravel(), 'agr_area': agr_area_repeated.ravel()}).to_csv(

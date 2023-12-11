@@ -10,7 +10,7 @@ agg_length = 100
 count_pixel_per_block = agg_length ** 2
 
 # Tolerance value in percent; Controls the allowed deviation per crop and farm
-tolerance = 10
+tolerance = 5
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
 rasterize = True
@@ -29,9 +29,18 @@ verbatim = True
 # No data value
 nd_value = -999
 
-# creates the paths according to the parameters stated above, so we get a new folder when we change the parameters
+# Should the crop sequences be considered or not?
+
+seq = True
 temp_path = "temp_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3]
-out_path = "output_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3]
+
+if seq:
+    # creates the paths according to the parameters stated above, so we get a new folder when we change the parameters
+    out_path = "output_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3] + '_seq'
+else:
+    # oy = one year
+    out_path = "output_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3] + '_oy'
+
 
 # crop dictionary, croptype name as key, croptype integer id as value
 crop_names_dict = {'no_data': 0, 'maize': 1, 'winter_cereals': 2, 'beets': 3, 'rapeseed': 4, 'potato': 5,
@@ -45,4 +54,5 @@ farm_ids_uckermark = np.unique(pd.read_csv('./delete/uckermark_farmids.csv')[far
 selected_farm_ids = np.random.choice(farm_ids_uckermark, size=10, replace=False)
 selected_farm_ids = [5392, 5517, 5462, 5322, 5461] # uckermark
 selected_farm_ids = [1983, 2203, 1836, 1980, 1977] # oder
+selected_farm_ids = [5140, 5085, 5165, 5176, 5161] # teltow
 print(selected_farm_ids)

@@ -10,6 +10,9 @@ from config import *
 
 
 def run_optimization():
+    if seq:
+        print('change to seq False')
+        return
     if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
         os.makedirs(temp_path)

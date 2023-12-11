@@ -11,6 +11,9 @@ from CropRotRules import *
 
 
 def run_optimization_seq():
+    if not seq:
+        print('change to seq True')
+        return
     if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
         os.makedirs(temp_path)
@@ -404,7 +407,9 @@ def run_optimization_seq():
                                dtype=gdal.GDT_Int32, noDataValue=0)
 
     ####################################################################################################################
-    analyse_solution_seq()
+    analyse_solution_seq(landscape_size=agg_length)
+    analyse_solution_seq(landscape_size=200)
+
     get_change_map_seq(n_years)
     get_shares_seq(iacs_gp, n_years)
 
