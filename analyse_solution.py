@@ -2,7 +2,7 @@ from __functions import *
 import matplotlib.pyplot as plt
 
 
-def analyse_solution_seq(landscape_size=agg_length):
+def analyse_solution_seq(temp_path, out_path, selected_farm_ids, landscape_size=agg_length):
     rst = rasterio.open('' + temp_path + '/' + 'reference_raster.tif')
     opt = gdal.Open('./' + out_path + '/' + 'maxent_croptypes_' + str(tolerance) + '.tif').ReadAsArray()
     n_years = opt.shape[0]
@@ -125,7 +125,7 @@ def analyse_solution_seq(landscape_size=agg_length):
               img_nan_init.flatten())) * 100)
 
 
-def analyse_solution():
+def analyse_solution(temp_path, out_path, selected_farm_ids):
     init = gdal.Open('./' + temp_path + '/' + 'IDKTYP.tif').ReadAsArray()
     opt = gdal.Open('./' + out_path + '/' + 'opt_crop_allocation_' + str(tolerance) + '.tif').ReadAsArray()
     ####################################################################################################################
@@ -197,7 +197,7 @@ def analyse_solution():
           ((np.nanmean(img_nan_opt.flatten())-np.nanmean(img_nan_init.flatten()))/np.nanmean(img_nan_init.flatten()))*100)
 
 
-def get_change_map():
+def get_change_map(temp_path, out_path):
     iacs_gp = gpd.read_file('./' + out_path + '/' + 'iacs_opt.shp')
     print(iacs_gp.columns)
     iacs_gp['crp_chngd'] = iacs_gp['OPT_KTYP'] != iacs_gp[crop_type_column]
@@ -208,7 +208,7 @@ def get_change_map():
     iacs_gp.to_file('./' + out_path + '/' + 'iacs_opt.shp')
 
 
-def get_change_map_seq(n_years):
+def get_change_map_seq(n_years, temp_path, out_path):
     for year in range(n_years):
         iacs_gp = gpd.read_file('./' + out_path + '/' + 'iacs_opt.shp')
         iacs_gp['crp_chngd_' + str(year)] = iacs_gp['OPT_KTYP_' + str(year)] != iacs_gp['crp_yr_' + str(year)]
@@ -219,7 +219,7 @@ def get_change_map_seq(n_years):
         iacs_gp.to_file('./' + out_path + '/' + 'iacs_opt.shp')
 
 
-def get_shares_seq(iacs_gp, n_years):
+def get_shares_seq(iacs_gp, n_years, temp_path, out_path):
     # this function calculates the area for each croptype for the entire study area and checks if the area of the
     # optimized allocation is equal to the initial allocation with a tolerance value
 
@@ -253,7 +253,7 @@ def get_shares_seq(iacs_gp, n_years):
             print('errors: ', error)
 
 
-def get_shares(iacs_gp):
+def get_shares(iacs_gp, temp_path, out_path):
     diss_init = iacs_gp.dissolve(by=[crop_type_column], as_index=False)
     diss_init['area_init'] = diss_init.area * 0.0001
 

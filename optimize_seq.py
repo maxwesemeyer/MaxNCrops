@@ -10,7 +10,7 @@ from CropRotRules import *
 ########################################################################################################################
 
 
-def run_optimization_seq():
+def run_optimization_seq(selected_farm_ids, temp_path, out_path):
     if not seq:
         print('change to seq True')
         return
@@ -22,10 +22,10 @@ def run_optimization_seq():
         os.makedirs(out_path)
     if rasterize:
         print('rasterizing...')
-        rasterize_input_shp(crop_type_column=crop_type_column, farm_id_column=farm_id_column)
+        rasterize_input_shp(temp_path, out_path, crop_type_column=crop_type_column, farm_id_column=farm_id_column, selected_farm_ids=selected_farm_ids)
 
     field_id_arr, farmid_arr, sparse_idx, unique_crops, unique_field_ids, iacs_gp, unique_farms, num_blocks, \
-    start_vals = prepare_data(agg_length=agg_length, crop_type_column=crop_type_column, farm_id_column=farm_id_column)
+    start_vals = prepare_data(temp_path, out_path, agg_length=agg_length, crop_type_column=crop_type_column, farm_id_column=farm_id_column)
 
     if verbatim:
         print(len(unique_field_ids), 'number of decision units')
@@ -50,6 +50,7 @@ def run_optimization_seq():
     CropRotViolation_dict, longest_seq_dict = check_CropRotRules(historic_croptypes_dict)
     crop_rot_freq = get_rotations(historic_croptypes_dict)
 
+    # select all field ids that belong to the selected farms
     relevant_fields_list = []
     for i, id in enumerate(unique_field_ids):
         if i == 0:
@@ -84,6 +85,15 @@ def run_optimization_seq():
     for i, crop in enumerate(unique_crops):
         crop = str(crop)
         vars["{0}".format(crop)] = m.addMVar((len(unique_field_ids), n_years), vtype=GRB.BINARY, name='crop_bin_' + crop)
+        if crop != str(0):
+            if verbatim:
+                print('setting start', crop)
+            for i, fid in enumerate(unique_field_ids):
+                if i == 0:
+                    continue
+                for year in range(n_years):
+                    if historic_croptypes_dict[fid][year] == crop:
+                        vars["{0}".format(crop)][i, year].Start = 1
 
     # setting those farms that are not selected as static (same values as in historic crop types)
     selected_farms_field_ids = []
@@ -407,11 +417,11 @@ def run_optimization_seq():
                                dtype=gdal.GDT_Int32, noDataValue=0)
 
     ####################################################################################################################
-    analyse_solution_seq(landscape_size=agg_length)
-    analyse_solution_seq(landscape_size=200)
+    analyse_solution_seq(temp_path, out_path, selected_farm_ids, landscape_size=agg_length)
+    analyse_solution_seq(temp_path, out_path, selected_farm_ids, landscape_size=200)
 
-    get_change_map_seq(n_years)
-    get_shares_seq(iacs_gp, n_years)
+    get_change_map_seq(n_years, temp_path, out_path)
+    get_shares_seq(iacs_gp, n_years, temp_path, out_path)
 
     ####################################################################################################################
     # calculate historic_croptypes_dict and check for violations of the rules again
@@ -421,15 +431,11 @@ def run_optimization_seq():
 
     crop_rot_freq = crop_rot_freq[crop_rot_freq['fid'].isin(relevant_fields_list)]
     crop_rot_freq.to_csv('./' + out_path + '/crop_rot_freq_' + str(tolerance) + '.csv')
-    crop_rot_figures()
+    #crop_rot_figures()
     for i in range(len(unique_field_ids)):
         if longest_seq_dict_opt[i][1] > longest_seq_dict[i][1]:
             print('error', longest_seq_dict[i], longest_seq_dict_opt[i], i)
     print(longest_seq_dict)
     print(longest_seq_dict_opt)
-
-
-if __name__ == '__main__':
-    run_optimization_seq()
 
 

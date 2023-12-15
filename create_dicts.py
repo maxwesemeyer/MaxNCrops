@@ -5,7 +5,7 @@ import rasterio.mask
 from __functions import *
 
 
-def prepare_data(agg_length=100, crop_type_column=None, farm_id_column=None):
+def prepare_data(temp_path, out_path, agg_length=100, crop_type_column=None, farm_id_column=None):
 
     shp_p = './' + temp_path + '/' + 'iacs.shp'
     crop_arr = gdal.Open('./' + temp_path + '/' + 'IDKTYP.tif').ReadAsArray().astype(int)

@@ -221,19 +221,3 @@ def longest_sequence(binary_array):
     return max_sequence, max_start_index
 
 
-def rasterize_shp(iacs, out_raster_name, rasterize_columns):
-    rst = rasterio.open('' + temp_path + '/' + 'reference_raster.tif')
-    meta = rst.meta.copy()
-    meta.update(count=len(rasterize_columns), compress='lzw')
-
-    with rasterio.open('./' + out_path + '/' + out_raster_name + '.tif', 'w+', **meta) as out:
-        out.nodata = 0
-        out_arr = out.read(1)
-        for band_idx, column in enumerate(rasterize_columns, start=1):
-            # Create a generator of geom, value pairs for rasterizing
-            shapes = ((geom, value) for geom, value in zip(iacs.geometry, iacs[column]))
-            burned = features.rasterize(shapes=shapes, fill=0, out=out_arr, transform=out.transform)
-            out.write_band(band_idx, burned)
-    out.close()
-
-

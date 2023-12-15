@@ -1,7 +1,7 @@
 from __functions import *
 
 
-def create_reference_raster(gpd_frame, reference_gt):
+def create_reference_raster(gpd_frame, reference_gt, temp_path, out_path):
     # creates a reference raster in 10m resolution that covers the study area and will be used for rasterization
     resolution = 10
     bounds = gpd_frame.total_bounds
@@ -25,7 +25,7 @@ def create_reference_raster(gpd_frame, reference_gt):
     new_dataset.close()
 
 
-def rasterize_input_shp(crop_type_column=None, farm_id_column=None):
+def rasterize_input_shp(temp_path, out_path, crop_type_column=None, farm_id_column=None, selected_farm_ids=None):
     #path = os.path.dirname(__file__)
     shp_p = glob.glob('./input/*.shp')[0]
     gt_ref = gdal.Open(glob.glob('./input/*.tif')[0]).GetGeoTransform()
@@ -49,7 +49,7 @@ def rasterize_input_shp(crop_type_column=None, farm_id_column=None):
     iacs['field_id'] = range(1, len(iacs.index) + 1)
     iacs.to_file('./' + temp_path + '/' + 'iacs.shp')
 
-    create_reference_raster(iacs, gt_ref)
+    create_reference_raster(iacs, gt_ref, temp_path, out_path)
 
     rst = rasterio.open('' + temp_path + '/' + 'reference_raster.tif')
     meta = rst.meta.copy()
