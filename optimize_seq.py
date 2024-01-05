@@ -198,10 +198,16 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
                             m.addConstr(sum(vars[str(crop)][i, :] * crop_na_position) == vars[str(crop)][i, :].sum(),
                                         name='fix_na_position_2_' + str(crop) + '_' + str(id))
                         else:
-                            # we set the number of occurences per crop in the sequence of each field
-                            sum_crop = np.where(historic_crops == crop, True, False).sum()
-                            #print(historic_crops, crop, 'sumCrop:', sum_crop, 'i:', i)
-                            m.addConstr(vars[str(crop)][i, :].sum() == sum_crop, name='taboo_crop_' + str(crop) + '_' + str(id))
+                            if diversity_type == 'attainable':
+                                # we set the number of occurences per crop in the sequence of each field
+                                sum_crop = np.where(historic_crops == crop, True, False).sum()
+                                m.addConstr(vars[str(crop)][i, :].sum() == sum_crop, name='taboo_crop_' + str(crop) + '_' + str(id))
+                            else:
+                                # potential diversity; only crops that have been grown previously can be allocated but
+                                # number of occurences per crop in the sequence is not predefined
+                                sum_crop = np.where(historic_crops == crop, True, False).sum()
+                                if sum_crop == 0:
+                                    m.addConstr(vars[str(crop)][i, :].sum() == 0, name='taboo_crop_' + str(crop) + '_' + str(id))
                 except:
                     None
 
@@ -355,19 +361,23 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
 
                             # max return time for rapeseed = 3 years; beets and potato = 4
                             # max return time of 3 means  this is ok: [1, 0, 0, 1, 0, 0, 1]
-                            if CropRotViolation_dict[i][0] == 0:
-                                min_return_t_for_x(model, vals, year, crop, i, t=3, x=crop_names_dict['rapeseed'])
-                            else:
-                                # set crop sequence to original sequence
-                                if historic_croptypes_dict[i][year] == crop:
-                                    model.cbLazy(gp.quicksum([model._vars[str(crop)][i, year].item()]) == 1)
-                            if CropRotViolation_dict[i][1] == 0:
-                                min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['potato'])
-                            if CropRotViolation_dict[i][2] == 0:
-                                min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['beets'])
-                            if CropRotViolation_dict[i][5] == 0:
-                                min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['sunflowers'])
-
+                            #min_ret_rape = 3
+                            #if CropRotViolation_dict[i][0] == 0:
+                            min_return_t_for_x(model, vals, year, crop, i, t=CropRotViolation_dict[i][0], x=crop_names_dict['rapeseed'])
+                            #else:
+                            #    # set crop sequence to original sequence
+                            #    if historic_croptypes_dict[i][year] == crop:
+                            #        model.cbLazy(gp.quicksum([model._vars[str(crop)][i, year].item()]) == 1)
+                            #if CropRotViolation_dict[i][1] == 0:
+                            #    min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['potato'])
+                            #if CropRotViolation_dict[i][2] == 0:
+                            #    min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['beets'])
+                            #if CropRotViolation_dict[i][5] == 0:
+                            #    min_return_t_for_x(model, vals, year, crop, i, t=4, x=crop_names_dict['sunflowers'])
+                            # TEST
+                            min_return_t_for_x(model, vals, year, crop, i, t=CropRotViolation_dict[i][1], x=crop_names_dict['potato'])
+                            min_return_t_for_x(model, vals, year, crop, i, t=CropRotViolation_dict[i][2], x=crop_names_dict['beets'])
+                            min_return_t_for_x(model, vals, year, crop, i, t=CropRotViolation_dict[i][5], x=crop_names_dict['sunflowers'])
     ####################################################################################################################
     # default is minimize
     m.setObjective(obj, GRB.MAXIMIZE)

@@ -30,8 +30,10 @@ def min_return_t_for_x_check(vals_, t, x):
             t_adapted_to_n_years = t_adapted_to_n_years - 1
 
         if values_x[year_] > 0.5 and any(values_x[year_ + add] > 0.5 for add in range(1, t_adapted_to_n_years + 1)):
-            return 1
-    return 0
+            # calculates the shortest brake between the same crop; i.e. the minimum return time
+            return shortest_sequence(values_x.astype(bool))[0]
+
+    return t+1
 
 
 def longest_seq_x(vals_, x):
@@ -93,12 +95,11 @@ def check_CropRotRules(historic_croptypes_dict):
         cereals_longest_seq_list.append(longest_seq_x(value, x=crop_names_dict['winter_cereals']))
         maize_longest_seq_list.append(longest_seq_x(value, x=crop_names_dict['maize']))
 
-
-    print(sum(rapeseed_minret_violation_list), 'violations of the rapeseed constraint')
-    print(sum(potato_minret_violation_list), 'violations of the potato constraint')
-    print(sum(beet_minret_violation_list), 'violations of the beet constraint')
-    print(sum(legume_minret_violation_list), 'violations of the legumes constraint')
-    print(sum(sunflower_minret_violation_list), 'violations of the sunflower min return constraint')
+    print(sum([1 if value != 3 else 0 for value in rapeseed_minret_violation_list]), 'violations of the rapeseed constraint')
+    print(sum([1 if value != 4 else 0 for value in potato_minret_violation_list]), 'violations of the potato constraint')
+    print(sum([1 if value != 4 else 0 for value in beet_minret_violation_list]), 'violations of the beet constraint')
+    print(sum([1 if value != 2 else 0 for value in legume_minret_violation_list]), 'violations of the legumes constraint')
+    print(sum([1 if value != 4 else 0 for value in sunflower_minret_violation_list]), 'violations of the sunflower min return constraint')
     print(sum(sunflower_rp_violation_list), 'violations of the sunflower-rapeseed constraint')
     print(sum(no_beets_after_rapeseed), 'violations of the no_beets_after_rapeseed')
     print(sum(no_rapeseed_after_maize_list), 'no_rapeseed_after_maize_list')

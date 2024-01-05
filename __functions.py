@@ -221,3 +221,43 @@ def longest_sequence(binary_array):
     return max_sequence, max_start_index
 
 
+def shortest_sequence(binary_array):
+    # This function measures the shortest sequence of 0s between 1s
+    binary_array_rev = ~binary_array
+    # in case there is only one 1, the length of the bin array is returned
+    if sum(binary_array) == 1:
+        return len(binary_array), 0
+
+    if sum(binary_array_rev) == 0:
+        return 0, 0
+    if sum(binary_array_rev) == len(binary_array_rev):
+        return sum(binary_array_rev), 0
+    # this happens if the crop was cultivated in two consecutive years;
+    if longest_sequence(~binary_array_rev)[0] > 1:
+        return 0, longest_sequence(~binary_array_rev)[1]
+
+    max_sequence = 0
+    current_sequence = 0
+    start_index = 0
+
+    sequence_lengths = []
+    start_indices = []
+    for i, value in enumerate(binary_array_rev):
+        # we are only interested in the gaps between 1s; this way we avoid measuring the gap starting at index 0
+        # e.g. : [0, 1, 0, 0, 1]
+        if value == 1 and sum(binary_array[:i]) >= 1:
+            current_sequence += 1
+            if current_sequence == 1:
+                start_index = i  # Update start index when a new sequence begins
+            max_sequence = current_sequence
+
+        else:
+            if current_sequence >= 1:
+                sequence_lengths.append(max_sequence)
+                start_indices.append(start_index)
+            current_sequence = 0
+    # this happens if the sequence of 1s goes until the last item
+    if not sequence_lengths:
+        return current_sequence, start_index
+    argmin = np.argmin(sequence_lengths)
+    return sequence_lengths[argmin], start_indices[argmin]
