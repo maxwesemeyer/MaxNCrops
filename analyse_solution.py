@@ -219,15 +219,15 @@ def get_change_map_seq(n_years, temp_path, out_path):
         iacs_gp.to_file('./' + out_path + '/' + 'iacs_opt.shp')
 
 
-def get_shares_seq(iacs_gp, n_years, temp_path, out_path):
+def get_shares_seq(iacs_gp, n_years, temp_path, out_path, selected_farm_ids):
     # this function calculates the area for each croptype for the entire study area and checks if the area of the
     # optimized allocation is equal to the initial allocation with a tolerance value
-
+    selected_rows = iacs_gp[iacs_gp[farm_id_column].isin(selected_farm_ids)].copy()
     for year in range(n_years):
-        diss_init = iacs_gp.copy().dissolve(by=['crp_yr_' + str(year)], as_index=False)
+        diss_init = selected_rows.copy().dissolve(by=['crp_yr_' + str(year)], as_index=False)
         diss_init['area_init'] = diss_init.area * 0.0001
 
-        diss_opt = iacs_gp.copy().dissolve(by=['OPT_KTYP_' + str(year)], as_index=False)
+        diss_opt = selected_rows.copy().dissolve(by=['OPT_KTYP_' + str(year)], as_index=False)
         diss_opt['area_opt'] = diss_opt.area * 0.0001
 
         merged = pd.merge(diss_init, diss_opt, left_on=[farm_id_column, 'crp_yr_' + str(year)], right_on=[farm_id_column, 'OPT_KTYP_' + str(year)])
@@ -236,9 +236,9 @@ def get_shares_seq(iacs_gp, n_years, temp_path, out_path):
         merged = merged[['crp_yr_' + str(year) + '_x', 'area_init', 'area_opt']]
         merged.to_csv('./' + out_path + '/shares_bb_iacs' + str(year) + '.csv')
 
-        diss_init = iacs_gp.copy().dissolve(by=[farm_id_column, 'crp_yr_' + str(year)], as_index=False).copy()
+        diss_init = selected_rows.copy().dissolve(by=[farm_id_column, 'crp_yr_' + str(year)], as_index=False).copy()
         diss_init['area_init'] = diss_init.area * 0.0001
-        diss_opt = iacs_gp.copy().dissolve(by=[farm_id_column, 'OPT_KTYP_' + str(year)], as_index=False).copy()
+        diss_opt = selected_rows.copy().dissolve(by=[farm_id_column, 'OPT_KTYP_' + str(year)], as_index=False).copy()
         diss_opt['area_opt'] = diss_opt.area * 0.0001
         merged = pd.merge(diss_init, diss_opt, left_on=[farm_id_column, 'crp_yr_' + str(year)], right_on=[farm_id_column, 'OPT_KTYP_' + str(year)])
 
