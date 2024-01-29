@@ -198,24 +198,18 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
                             m.addConstr(sum(vars[str(crop)][i, :] * crop_na_position) == vars[str(crop)][i, :].sum(),
                                         name='fix_na_position_2_' + str(crop) + '_' + str(id))
                         else:
-                            # TODO this section is not final but fully functional
-                            #if diversity_type == 'attainable':
-                            #    # we set the number of occurences per crop in the sequence of each field
-                            #    sum_crop = np.where(historic_crops == crop, True, False).sum()
-                            #    m.addConstr(vars[str(crop)][i, :].sum() == sum_crop, name='taboo_crop_' + str(crop) + '_' + str(id))
-                            #else:
-                            if 1==1:
-                                # potential diversity; only crops that have been grown previously can be allocated but
-                                # number of occurences per crop in the sequence is not predefined
-                                sum_crop = np.where(historic_crops == crop, True, False).sum()
-                                if sum_crop == 0:
-                                    m.addConstr(vars[str(crop)][i, :].sum() == 0, name='taboo_crop_' + str(crop) + '_' + str(id))
-                                elif sum_crop == 1:
-                                    m.addConstr(vars[str(crop)][i, :].sum() == sum_crop,
-                                                name='taboo_crop_' + str(crop) + '_' + str(id))
-                                else:
-                                    m.addConstr(vars[str(crop)][i, :].sum() >= sum_crop-1,
-                                                name='force_crop_' + str(crop) + '_' + str(id))
+
+                            # potential diversity; only crops that have been grown previously can be allocated but
+                            # number of occurences per crop in the sequence is not predefined
+                            sum_crop = np.where(historic_crops == crop, True, False).sum()
+                            if sum_crop == 0:
+                                m.addConstr(vars[str(crop)][i, :].sum() == 0, name='taboo_crop_' + str(crop) + '_' + str(id))
+                            elif sum_crop == 1:
+                                m.addConstr(vars[str(crop)][i, :].sum() == sum_crop,
+                                            name='taboo_crop_' + str(crop) + '_' + str(id))
+                            else:
+                                m.addConstr(vars[str(crop)][i, :].sum() >= sum_crop-1,
+                                            name='force_crop_' + str(crop) + '_' + str(id))
                 except:
                     None
 
