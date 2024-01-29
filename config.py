@@ -36,6 +36,6 @@ crop_names_dict = {'no_data': 0, 'maize': 1, 'winter_cereals': 2, 'beets': 3, 'r
 crop_names_dict_reversed = {value: key for key, value in crop_names_dict.items()}
 
 # here you can select all farms of which the sequences will be optimized;
-selected_farm_ids = [5392, 5517, 5462, 5322, 5461]
+selected_farm_ids = [1, 2, 3]
 
 
