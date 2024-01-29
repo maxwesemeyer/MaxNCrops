@@ -1,5 +1,10 @@
 from config import *
 from optimize_seq import run_optimization_seq
+import os
+
+
+path = os.path.dirname(__file__)
+os.chdir(path)
 
 # id can be useful to test different sets of selected farms
 id = 1

@@ -26,8 +26,8 @@ def create_reference_raster(gpd_frame, reference_gt, temp_path, out_path):
 
 
 def rasterize_input_shp(temp_path, out_path, crop_type_column=None, farm_id_column=None, selected_farm_ids=None):
-    #path = os.path.dirname(__file__)
     shp_p = glob.glob('./input/*.shp')[0]
+
     gt_ref = gdal.Open(glob.glob('./input/*.tif')[0]).GetGeoTransform()
     iacs_orig = gpd.read_file(shp_p)
     # select all rows where iacs[farm_id_column] is in selected_farm_ids; Then buffer around these fields and select all
