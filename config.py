@@ -21,7 +21,7 @@ farm_id_column = 'farm_id' # new_farm_i
 
 # What diversity to calculate? chose either 'attainable' or 'potential'
 # If 'potential' is selected, there are no farm acreage constraints
-diversity_type = 'attainable'
+diversity_type = 'potential'
 
 # set this to True to print information about the data preprocessing;
 # Set it to False when running in the command line; sometimes the print statements cause the program to stop

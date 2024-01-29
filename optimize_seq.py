@@ -40,6 +40,7 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
     unique_crops = np.unique(list(chain.from_iterable(all_crops)))
     unique_crops = np.setdiff1d(unique_crops, [255, 99])
     #unique_crops = np.insert(unique_crops, 0, 0)
+    unique_crops = crop_names_dict.values()
 
     ####################################################################################################################
     n_years = len(historic_croptypes_dict[1])

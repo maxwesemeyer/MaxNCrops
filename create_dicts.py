@@ -18,6 +18,7 @@ def prepare_data(temp_path, out_path, agg_length=100, crop_type_column=None, far
     sparse_idx = get_indices_sparse(field_id_arr.astype(int))
 
     unique_crops = np.unique(crop_arr).astype(int).tolist()
+    unique_crops = crop_names_dict.values()
     if verbatim:
         print('number of unique crop types:', len(unique_crops), 'crops: ', unique_crops, 'including no data value')
     unique_farms = np.unique(farmid_arr)
