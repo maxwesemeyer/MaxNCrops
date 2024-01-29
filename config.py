@@ -25,7 +25,7 @@ diversity_type = 'attainable'
 
 # set this to True to print information about the data preprocessing;
 # Set it to False when running in the command line; sometimes the print statements cause the program to stop
-verbatim = False
+verbatim = True
 
 # No data value
 nd_value = -999

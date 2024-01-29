@@ -184,12 +184,14 @@ def get_rotations(historic_croptypes_dict):
                                   'pre_suc': np.repeat("pre", repeats=len(preceding_crop_sublist)),
                                   'fid': sum(ids_pre_list, [])})
 
-        final_df = final_df.append(preced_df)
+        final_df = pd.concat([final_df, preced_df], ignore_index=True)
         succeeding_crop_sublist = sum(succeeding_crop_sublist, [])
         succseed_df = pd.DataFrame({'value':succeeding_crop_sublist , 'crop_t_from': np.repeat(key_crop, repeats=len(succeeding_crop_sublist)),
                                   'pre_suc': np.repeat("suc", repeats=len(succeeding_crop_sublist)),
                                     'fid': sum(ids_suc_list, [])})
-        final_df = final_df.append(succseed_df)
+
+        final_df = pd.concat([final_df, succseed_df], ignore_index=True)
+
     return final_df
 
 
