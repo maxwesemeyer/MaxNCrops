@@ -50,7 +50,6 @@ def check_CropRotRules(historic_croptypes_dict):
     # for each field we check if each of our e.g. three constraints is violated by the farmer; if yes -> if no -> 0;
     # this dict will be used with the lazyconstraints; if dict 1 -> don't enforce this constraint
     print('checking rules')
-    print(historic_croptypes_dict)
     rapeseed_minret_violation_list = []
     potato_minret_violation_list = []
     beet_minret_violation_list = []
@@ -134,7 +133,7 @@ def check_CropRotRules(historic_croptypes_dict):
                                                                                                                                                                      no_beets_after_rapeseed, no_rapeseed_after_potatoes_list, no_maize_after_beets_list)}
     longest_seq_dict = {id_: (val1, val2, val3) for id_, val1, val2, val3 in zip(list(historic_croptypes_dict.keys()),
                                                                      maize_longest_seq_list, cereals_longest_seq_list, springCereal_longest_seq_list)}
-    print('length of maize list', len(maize_longest_seq_list))
+    #print('length of maize list', len(maize_longest_seq_list))
     return violation_dict, longest_seq_dict
 
 

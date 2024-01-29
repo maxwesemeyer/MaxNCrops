@@ -11,9 +11,6 @@ from CropRotRules import *
 
 
 def run_optimization_seq(selected_farm_ids, temp_path, out_path):
-    if not seq:
-        print('change to seq True')
-        return
     if not os.path.exists(temp_path):
         # Create the temp directory if it does not exist
         os.makedirs(temp_path)
@@ -64,7 +61,7 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
 
     crop_rot_freq.to_csv('./' + out_path + '/crop_rot_freq_init.csv')
     del crop_rot_freq
-    print(longest_seq_dict)
+
     # the structure of farm_field_dict is [farm1 [field1, field2...], farm2 [field1, field2...] ... ]
     with open('./' + temp_path + '/farm_field_dict.pkl', 'rb') as f:
         farm_field_dict = pickle.load(f)
@@ -76,6 +73,7 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
         block_dict = pickle.load(f)
     ####################################################################################################################
     # Create the Gurobi model
+    print('building the Gurobi model...')
     m = gp.Model("Maximum Landscape Entropy")
 
     vars = {}
@@ -393,7 +391,7 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
     #m.write('maxent_lp.lp')
     m.params.LazyConstraints = 1
     m.params.Heuristics = 0.3
-    print('starting optimization')
+    print('running the Gurobi model')
     m._vars = vars  # Store variables for use in the callback
     # CropRotRules
     m.optimize(CropRotRules_lazy)
