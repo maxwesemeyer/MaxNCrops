@@ -13,7 +13,7 @@ count_pixel_per_block = agg_length ** 2
 tolerance = 5
 
 # rasterization necessary? can be set to False to speed up the process if run a second time
-rasterize = False
+rasterize = True
 
 # state here the column names in the Shapefile
 crop_type_column = 'ID_KTYP_2'

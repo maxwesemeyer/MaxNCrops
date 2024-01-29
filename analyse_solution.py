@@ -109,7 +109,7 @@ def analyse_solution_seq(temp_path, out_path, selected_farm_ids, landscape_size=
     pd.DataFrame(
         {'entropy_init': img_entr_init.ravel(), 'entropy_opt': img_entr_opt.ravel(), 'initial_ct': img_init.ravel(),
          'opt_ct': img_opt.ravel(), 'agr_area': agr_area_repeated.ravel()}).to_csv(
-        './' + out_path + '/' + 'entropy_ct_rav' + str(tolerance) + '.csv')
+        './' + out_path + '/' + 'entropy_ct_rav' + str(tolerance) + '_' + str(landscape_size) + '.csv')
 
     img_nan_init = img_entr_init.astype(float)
     img_nan_init[np.where(img_nan_init == nd_value, True, False)] = np.nan

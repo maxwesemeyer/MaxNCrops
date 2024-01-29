@@ -31,7 +31,7 @@ def min_return_t_for_x_check(vals_, t, x):
 
         if values_x[year_] > 0.5 and any(values_x[year_ + add] > 0.5 for add in range(1, t_adapted_to_n_years + 1)):
             # calculates the shortest brake between the same crop; i.e. the minimum return time
-            return shortest_sequence(values_x.astype(bool))[0]
+            return shortest_sequence(values_x.astype(bool))[0]+1
 
     return t+1
 
@@ -61,9 +61,15 @@ def check_CropRotRules(historic_croptypes_dict):
     no_beets_after_rapeseed = []
     no_legume_after_rapeseed_list = []
     no_sunflowers_after_legumes_list = []
+    no_rapeseed_after_potatoes_list = []
+    no_maize_after_beets_list = []
+
+
+
 
     cereals_longest_seq_list = []
     maize_longest_seq_list = []
+    springCereal_longest_seq_list = []
     for key, value in historic_croptypes_dict.items():
         rapeseed_minret_violation_list.append(min_return_t_for_x_check(value, t=3, x=crop_names_dict['rapeseed']))
 
@@ -82,6 +88,13 @@ def check_CropRotRules(historic_croptypes_dict):
         else:
             sunflower_rp_violation_list.append(0)
 
+        # no rapeseed after potato and vice versa
+        if no_x_after_y_check(value, crop_x=crop_names_dict['potato'], crop_y=crop_names_dict['rapeseed']) == 1 or \
+                no_x_after_y_check(value, crop_x=crop_names_dict['rapeseed'], crop_y=crop_names_dict['potato']) == 1:
+            no_rapeseed_after_potatoes_list.append(1)
+        else:
+            no_rapeseed_after_potatoes_list.append(0)
+
         # no rapeseed after sunflowers and vice versa
         if no_x_after_y_check(value, crop_x=crop_names_dict['beets'], crop_y=crop_names_dict['rapeseed']) == 1 or \
                 no_x_after_y_check(value, crop_x=crop_names_dict['rapeseed'], crop_y=crop_names_dict['beets']) == 1:
@@ -89,11 +102,19 @@ def check_CropRotRules(historic_croptypes_dict):
         else:
             no_beets_after_rapeseed.append(0)
 
+        # no maize after beets and vice versa
+        if no_x_after_y_check(value, crop_x=crop_names_dict['beets'], crop_y=crop_names_dict['maize']) == 1 or \
+                no_x_after_y_check(value, crop_x=crop_names_dict['maize'], crop_y=crop_names_dict['beets']) == 1:
+                no_maize_after_beets_list.append(1)
+        else:
+            no_maize_after_beets_list.append(0)
+
         no_rapeseed_after_maize_list.append(no_x_after_y_check(value, crop_x=crop_names_dict['rapeseed'], crop_y=crop_names_dict['maize']))
         no_legume_after_rapeseed_list.append(no_x_after_y_check(value, crop_x=crop_names_dict['legumes'], crop_y=crop_names_dict['rapeseed']))
         no_sunflowers_after_legumes_list.append(no_x_after_y_check(value, crop_x=crop_names_dict['sunflowers'], crop_y=crop_names_dict['legumes']))
         cereals_longest_seq_list.append(longest_seq_x(value, x=crop_names_dict['winter_cereals']))
         maize_longest_seq_list.append(longest_seq_x(value, x=crop_names_dict['maize']))
+        springCereal_longest_seq_list.append(longest_seq_x(value, x=crop_names_dict['spring_cereals']))
 
     print(sum([1 if value != 3 else 0 for value in rapeseed_minret_violation_list]), 'violations of the rapeseed constraint')
     print(sum([1 if value != 4 else 0 for value in potato_minret_violation_list]), 'violations of the potato constraint')
@@ -105,12 +126,14 @@ def check_CropRotRules(historic_croptypes_dict):
     print(sum(no_rapeseed_after_maize_list), 'no_rapeseed_after_maize_list')
     print(sum(no_legume_after_rapeseed_list), 'no_legume_after_rapeseed_list')
     print(sum(no_sunflowers_after_legumes_list), 'no_sunflowers_after_legumes_list')
+    print(sum(no_rapeseed_after_potatoes_list), 'no_rapeseed_after_potatoes_list')
 
-    violation_dict = {id_: (val1, val2, val3, val4, val5, val6, val7, val8, val9, val10) for id_, val1, val2, val3, val4, val5, val6, val7, val8, val9, val10 in zip(list(historic_croptypes_dict.keys()), rapeseed_minret_violation_list, potato_minret_violation_list,
+    violation_dict = {id_: (val1, val2, val3, val4, val5, val6, val7, val8, val9, val10, val11, val12) for id_, val1, val2, val3, val4, val5, val6, val7, val8, val9, val10, val11, val12 in zip(list(historic_croptypes_dict.keys()), rapeseed_minret_violation_list, potato_minret_violation_list,
                                                                 beet_minret_violation_list, legume_minret_violation_list, sunflower_rp_violation_list, sunflower_minret_violation_list,
-                                                                                                                   no_rapeseed_after_maize_list, no_legume_after_rapeseed_list, no_sunflowers_after_legumes_list, no_beets_after_rapeseed)}
-    longest_seq_dict = {id_: (val1, val2) for id_, val1, val2 in zip(list(historic_croptypes_dict.keys()),
-                                                                     maize_longest_seq_list, cereals_longest_seq_list)}
+                                                                                                                   no_rapeseed_after_maize_list, no_legume_after_rapeseed_list, no_sunflowers_after_legumes_list,
+                                                                                                                                                                     no_beets_after_rapeseed, no_rapeseed_after_potatoes_list, no_maize_after_beets_list)}
+    longest_seq_dict = {id_: (val1, val2, val3) for id_, val1, val2, val3 in zip(list(historic_croptypes_dict.keys()),
+                                                                     maize_longest_seq_list, cereals_longest_seq_list, springCereal_longest_seq_list)}
     print('length of maize list', len(maize_longest_seq_list))
     return violation_dict, longest_seq_dict
 
