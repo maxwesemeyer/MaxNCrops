@@ -16,8 +16,8 @@ tolerance = 5
 rasterize = True
 
 # state here the column names in the Shapefile
-crop_type_column = 'ID_KTYP_2'
-farm_id_column = 'new_farm_i' #farm_id
+crop_type_column = 'ID_KTYP' #_2
+farm_id_column = 'farm_id' # new_farm_i
 
 # What diversity to calculate? chose either 'attainable' or 'potential'
 # If 'potential' is selected, there are no farm acreage constraints
