@@ -3,8 +3,8 @@ from optimize_seq import run_optimization_seq
 
 # id can be useful to test different sets of selected farms
 id = 1
-temp_path = "TESTtemp_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3] + '_' + str(id)
-out_path = "TESToutput_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3] + '_seq' + '_' + str(id)
+temp_path = "temp_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3] + '_' + str(id)
+out_path = "output_" + str(agg_length) + '_' + str(tolerance) + '_' + diversity_type[0:3] + '_seq' + '_' + str(id)
 
 print('preparing data to run optimization....')
 print('selected farms: ', selected_farm_ids)
