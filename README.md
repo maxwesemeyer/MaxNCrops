@@ -25,6 +25,7 @@ Build a new environment from spec list file
 
 ```
 conda create --name myenv -f requirements.txt
+```
 
 ## Run optimization
 In order to run the optimization just run the run_optimization.py file. Adjustable parameters can be found in the config file. These are: 
