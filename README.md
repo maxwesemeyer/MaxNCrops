@@ -38,7 +38,7 @@ In order to run the optimization just run the run_optimization.py file. Adjustab
 + ***verbatim***, set this to True to print information about the data preprocessing;
 + ***nd_value***, the no data value for the project can be set here
 + ***crop_names_dict***, specifies all included crop types, where the key is the name of the crop type and key the respective value that can be found in the data 
-+
+
 ## Output
 A variety of output is generated and saved in the output folder. 
 The most important are: 
