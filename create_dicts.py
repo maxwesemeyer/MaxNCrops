@@ -17,7 +17,6 @@ def prepare_data(temp_path, out_path, agg_length=100, crop_type_column=None, far
 
     sparse_idx = get_indices_sparse(field_id_arr.astype(int))
 
-    unique_crops = np.unique(crop_arr).astype(int).tolist()
     unique_crops = crop_names_dict.values()
     if verbatim:
         print('number of unique crop types:', len(unique_crops), 'crops: ', unique_crops, 'including no data value')
@@ -265,5 +264,5 @@ def prepare_data(temp_path, out_path, agg_length=100, crop_type_column=None, far
         with open('./' + temp_path + '/' + 'block_dict.pkl', 'wb') as f:
             pickle.dump(block_dict, f)
 
-    return field_id_arr, farmid_arr, sparse_idx, unique_crops, unique_field_ids, iacs_gp, unique_farms, num_blocks_total, \
+    return field_id_arr, farmid_arr, sparse_idx, unique_field_ids, iacs_gp, unique_farms, num_blocks_total, \
            start_vals

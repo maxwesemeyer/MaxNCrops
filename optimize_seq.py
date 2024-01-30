@@ -21,9 +21,9 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
         print('rasterizing...')
         rasterize_input_shp(temp_path, out_path, crop_type_column=crop_type_column, farm_id_column=farm_id_column, selected_farm_ids=selected_farm_ids)
 
-    field_id_arr, farmid_arr, sparse_idx, unique_crops, unique_field_ids, iacs_gp, unique_farms, num_blocks, \
+    field_id_arr, farmid_arr, sparse_idx, unique_field_ids, iacs_gp, unique_farms, num_blocks, \
     start_vals = prepare_data(temp_path, out_path, agg_length=agg_length, crop_type_column=crop_type_column, farm_id_column=farm_id_column)
-
+    unique_crops = crop_names_dict.values()
     if verbatim:
         print(len(unique_field_ids), 'number of decision units')
     ####################################################################################################################
@@ -31,16 +31,7 @@ def run_optimization_seq(selected_farm_ids, temp_path, out_path):
 
     with open('./' + temp_path + '/historic_croptypes_dict.pkl', 'rb') as f:
         historic_croptypes_dict = pickle.load(f)
-    ####################################################################################################################
-    # A bit of a workaround if not all crop types are cultivated in a given year; This is the case
-    # mostly for very small study areas
-    all_crops = []
-    for i, id in enumerate(unique_field_ids):
-        all_crops.append(list(np.unique(np.array(historic_croptypes_dict[id]))))
-    unique_crops = np.unique(list(chain.from_iterable(all_crops)))
-    unique_crops = np.setdiff1d(unique_crops, [255, 99])
-    #unique_crops = np.insert(unique_crops, 0, 0)
-    unique_crops = crop_names_dict.values()
+
 
     ####################################################################################################################
     n_years = len(historic_croptypes_dict[1])
